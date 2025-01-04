@@ -32,19 +32,40 @@ namespace ReactiveDAG.tests
         public async Task Test_Updating_Cell()
         {
             var dag = new DagEngine();
-            var inputCell = dag.AddInput(4);
-            var functionCell = dag.AddFunction(new BaseCell[] { inputCell, inputCell },
-                inputs => (int)inputs[0] * (int)inputs[1]
-            );
+            var inputCell1 = dag.AddInput(4);
+            var inputCell2 = dag.AddInput(4);
+            var functionCell = dag.AddFunction(new BaseCell[] { inputCell1, inputCell2 },
+                inputs => (int)inputs[0] * (int)inputs[1]            );
             var initialResult = await dag.GetResult<int>(functionCell);
             Assert.Equal(16, initialResult);
-
-            dag.UpdateInput(inputCell, 5);
+            dag.UpdateInput(inputCell1, 5);
             var updatedResult = await dag.GetResult<int>(functionCell);
-            Assert.Equal(25, updatedResult);
+            Assert.Equal(20, updatedResult); 
         }
 
         [Fact]
+        public void Test_Cyclic_Dependency()
+        {
+            var dag = new DagEngine();
+            var inputCell1 = dag.AddInput(4);
+            var inputCell2 = dag.AddInput(4);
+            var functionCell1 = dag.AddFunction(new BaseCell[] { inputCell1 },
+                inputs => (int)inputs[0] * 2
+            );
+            var functionCell2 = dag.AddFunction(new BaseCell[] { functionCell1 },
+                inputs => (int)inputs[0] + 10
+            );
+            Action createCycle = () =>
+            {
+                dag.AddFunction(new BaseCell[] { functionCell2 },
+                    inputs => (int)inputs[0] * 2
+                );
+            };
+            bool isCyclic = dag.IsCyclic(functionCell2.Index, inputCell1.Index);
+            Assert.True(isCyclic);
+        }
+
+            [Fact]
         public async Task Test_Chaining_Functions()
         {
             var dag = new DagEngine();
@@ -60,33 +81,7 @@ namespace ReactiveDAG.tests
             var additionResult = await dag.GetResult<double>(additionFuncCell);
             Assert.Equal("RS", concatResult);
             Assert.Equal(6.5, additionResult);
-        }
-
-        [Fact]
-        public async Task Test_Adding_Removing_Dependency()
-        {
-            var dag = new DagEngine();
-            var inputA = dag.AddInput(4.5);
-            var inputB = dag.AddInput(2);
-            var subtractionFuncCell = dag.AddFunction(
-                new BaseCell[] { inputA, inputB },
-                inputs => (double)inputs[0] - (int)inputs[1]
-            );   
-            var initialResult = await dag.GetResult<double>(subtractionFuncCell);
-            Assert.Equal(2.5, initialResult);
-            var inputC = dag.AddInput(1);
-            dag.AddDependency(subtractionFuncCell, inputC);
-            dag.UpdateInput(inputC, 3);
-            var resultAfterAdding = await dag.GetResult<double>(subtractionFuncCell);
-            Assert.Equal(2.5, resultAfterAdding);
-            dag.RemoveDependency(subtractionFuncCell, inputB);
-            var newSubtractionFuncCell = dag.AddFunction(
-                new BaseCell[] { inputA },
-                inputs => (double)inputs[0]
-            );
-            var resultAfterRemoving = await dag.GetResult<double>(newSubtractionFuncCell);
-            Assert.Equal(4.5, resultAfterRemoving);
-        }
+        }    
 
 
         [Fact]

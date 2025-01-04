@@ -1,4 +1,6 @@
 ﻿using ReactiveDAG.Core.Models;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 
 namespace ReactiveDAG.Core.Engine
 {
@@ -10,7 +12,8 @@ namespace ReactiveDAG.Core.Engine
 
     public class DagEngine
     {
-        private readonly Dictionary<int, DagNode> _nodes = [];
+        private readonly ConcurrentDictionary<int, DagNode> _nodes = new ConcurrentDictionary<int, DagNode>();
+
         private int _nextIndex = 0;
         public int NodeCount => _nodes.Count;
 
@@ -40,7 +43,7 @@ namespace ReactiveDAG.Core.Engine
                 {
                     _nodes[d].Dependencies.Remove(cell.Index);
                 }
-                _nodes.Remove(cell.Index);
+                _nodes.TryRemove(cell.Index,out _);
             }
         }
 
@@ -68,27 +71,31 @@ namespace ReactiveDAG.Core.Engine
                 var result = function(inputValues);
                 return result;
             });
+            _nodes[cell.Index] = node;
             foreach (var c in cells)
             {
+                if (!_nodes.ContainsKey(c.Index)) throw new InvalidOperationException($"Dependency cell with index {c.Index} not found.");
+                if (IsCyclic(cell.Index, c.Index)) throw new InvalidOperationException("Cyclic dependency detected.");
                 node.Dependencies.Add(c.Index);
             }
-            _nodes[cell.Index] = node;
             return cell;
         }
 
-        public void AddDependency(BaseCell dependentCell, BaseCell dependencyCell)
+        public bool IsCyclic(int startIndex, int targetIndex)
         {
-            var dependentNode = _nodes[dependentCell.Index];
-            dependentNode.Dependencies.Add(dependencyCell.Index);
-            UpdateAndRefresh(dependentCell.Index, UpdateMode.RefreshDependencies);
-        }
-
-        public void RemoveDependency(BaseCell dependentCell, BaseCell dependencyCell)
-        {
-            var dependentNode = _nodes[dependentCell.Index];
-            dependentNode.Dependencies.Remove(dependencyCell.Index);
-            UpdateAndRefresh(dependentCell.Index, UpdateMode.RefreshDependencies);
-        }
+            var visited = new HashSet<int>();        
+            bool dfs(int current)
+            {
+                if (current == targetIndex) return true;
+                if (!visited.Add(current)) return false;
+                foreach (var dependency in _nodes[current].Dependencies)
+                {
+                    if (dfs(dependency)) return true;
+                }
+                return false;
+            }
+            return dfs(startIndex);
+        }    
 
         public bool HasChanged<T>(Cell<T> cell)
         {
