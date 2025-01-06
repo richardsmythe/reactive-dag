@@ -1,11 +1,12 @@
-﻿
-using ReactiveDAG.Core.Engine;
+﻿using ReactiveDAG.Core.Engine;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 internal class Program
 {
     private static async Task Main(string[] args)
     {
-
         var builder = Builder.Create()
             .AddInput(6.2, out var cell1)
             .AddInput(4, out var cell2)
@@ -17,7 +18,6 @@ internal class Program
             }, out var result)
             .Build();
 
-        // Set up OnValueChanged callbacks for each cell
         cell1.OnValueChanged = newValue => Console.WriteLine($"cell1 value changed to: {newValue}");
         cell2.OnValueChanged = newValue => Console.WriteLine($"cell2 value changed to: {newValue}");
         cell3.OnValueChanged = newValue => Console.WriteLine($"cell3 value changed to: {newValue}");
@@ -25,15 +25,14 @@ internal class Program
         Console.WriteLine($"Created cell1: {cell1.Value}, cell2: {cell2.Value}, and cell3: {cell3.Value}");
         Console.WriteLine($"Sum of cells: {await builder.GetResult<double>(result)}");
 
-        // Update cell2
         builder.UpdateInput(cell2, 5);
-        Console.WriteLine($"cell2 updated to: {cell2.Value}");
-
-        // Update cell3
-        builder.UpdateInput(cell3, 6);
-        Console.WriteLine($"cell3 updated to: {cell3.Value}");
-
-        Console.WriteLine($"Updated Result: {await builder.GetResult<double>(result)}");
+        var updatedResult = await builder.GetResult<double>(result);
+        Console.WriteLine($"Updated Result after changing cell2: {updatedResult}");
+        
+        builder.UpdateInput(cell3, 6); 
+        
+        updatedResult = await builder.GetResult<double>(result);
+        Console.WriteLine($"Updated Result after changing cell3: {updatedResult}");
 
         Console.ReadLine();
     }

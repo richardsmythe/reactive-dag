@@ -13,6 +13,7 @@ namespace ReactiveDAG.Core.Engine
     public class DagEngine
     {
         private readonly ConcurrentDictionary<int, DagNode> _nodes = new ConcurrentDictionary<int, DagNode>();
+        private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1); // Semaphore for concurrency control
 
         private int _nextIndex = 0;
         public int NodeCount => _nodes.Count;
@@ -21,12 +22,7 @@ namespace ReactiveDAG.Core.Engine
 
         public async Task<T> GetResult<T>(BaseCell cell)
         {
-            DagNode node;
-            if (_nodes.TryGetValue(cell.Index, out var existingNode))
-            {
-                node = existingNode;
-            }
-            else
+            if (!_nodes.TryGetValue(cell.Index, out var node))
             {
                 throw new InvalidOperationException("Node not found.");
             }
@@ -36,22 +32,23 @@ namespace ReactiveDAG.Core.Engine
 
         public void RemoveNode(BaseCell cell)
         {
-            if (_nodes.ContainsKey(cell.Index))
+            if (_nodes.TryRemove(cell.Index, out var node))
             {
-                var dependentCells = GetDependentNodes(cell.Index).ToList();
-                foreach (var d in dependentCells)
+                node.DisposeSubscriptions();       
+                foreach (var dependentIndex in GetDependentNodes(cell.Index))
                 {
-                    _nodes[d].Dependencies.Remove(cell.Index);
+                    _nodes[dependentIndex].Dependencies.Remove(cell.Index);
                 }
-                _nodes.TryRemove(cell.Index,out _);
+                foreach (var dependentIndex in GetDependentNodes(cell.Index))
+                {
+                    var dependentNode = _nodes[dependentIndex];
+                    dependentNode.DeferredComputedNodeValue = new Lazy<Task<object>>(dependentNode.ComputeNodeValueAsync);
+                }
             }
         }
 
         private IEnumerable<int> GetDependentNodes(int index)
-            =>
-                _nodes.Where(n => n.Value.Dependencies
-                        .Contains(index))
-                    .Select(n => n.Key);
+            => _nodes.Where(n => n.Value.Dependencies.Contains(index)).Select(n => n.Key);
 
         public Cell<T> AddInput<T>(T value)
         {
@@ -66,24 +63,27 @@ namespace ReactiveDAG.Core.Engine
             var cell = Cell<TResult>.CreateFunctionCell(_nextIndex++);
             var node = new DagNode(cell, async () =>
             {
-                var inputValues =
-                    await Task.WhenAll(cells.Select(c => _nodes[c.Index].DeferredComputedNodeValue.Value));
+                var inputValues = await Task.WhenAll(cells.Select(c => _nodes[c.Index].DeferredComputedNodeValue.Value));
                 var result = function(inputValues);
                 return result;
             });
             _nodes[cell.Index] = node;
+
             foreach (var c in cells)
             {
                 if (!_nodes.ContainsKey(c.Index)) throw new InvalidOperationException($"Dependency cell with index {c.Index} not found.");
                 if (IsCyclic(cell.Index, c.Index)) throw new InvalidOperationException("Cyclic dependency detected.");
                 node.Dependencies.Add(c.Index);
             }
+
+            var dependencyCells = cells.OfType<Cell<object>>();
+            node.ConnectDependencies(dependencyCells, node.ComputeNodeValueAsync);
             return cell;
         }
 
         public bool IsCyclic(int startIndex, int targetIndex)
         {
-            var visited = new HashSet<int>();        
+            var visited = new HashSet<int>();
             bool dfs(int current)
             {
                 if (current == targetIndex) return true;
@@ -95,7 +95,7 @@ namespace ReactiveDAG.Core.Engine
                 return false;
             }
             return dfs(startIndex);
-        }    
+        }
 
         public bool HasChanged<T>(Cell<T> cell)
         {
@@ -114,36 +114,47 @@ namespace ReactiveDAG.Core.Engine
             }
         }
 
-        private void UpdateAndRefresh(int startIndex, UpdateMode mode)
+        private async void UpdateAndRefresh(int startIndex, UpdateMode mode)
         {
             var visited = new HashSet<int>();
             var stack = new Stack<int>();
             stack.Push(startIndex);
-            while (stack.Count > 0)
+            await _lock.WaitAsync();
+            try
             {
-                var index = stack.Pop();
-                if (!visited.Add(index)) continue;
-                var node = _nodes[index];
-                var dependantNodes = GetDependentNodes(index);
-                if (mode == UpdateMode.Update)
+                while (stack.Count > 0)
                 {
-                    foreach (var dependentNodeIndex in dependantNodes)
+                    var index = stack.Pop();
+                    if (!visited.Add(index)) continue;
+
+                    var node = _nodes[index];
+                    var dependentNodes = GetDependentNodes(index).ToList();
+
+                    if (mode == UpdateMode.RefreshDependencies)
                     {
-                        node = _nodes[dependentNodeIndex];
-                        node.DeferredComputedNodeValue = new Lazy<Task<object>>(node.ComputeNodeValueAsync);
-                        stack.Push(dependentNodeIndex);
+                        node.DisposeSubscriptions();
+                        var dependencyCells = dependentNodes
+                            .Select(depIndex => _nodes[depIndex].Cell)
+                            .OfType<Cell<object>>();
+                        node.ConnectDependencies(dependencyCells, node.ComputeNodeValueAsync);
+                    }
+                    else if (mode == UpdateMode.Update)
+                    {
+                        foreach (var dependentNodeIndex in dependentNodes)
+                        {
+                            node = _nodes[dependentNodeIndex];
+                            node.DeferredComputedNodeValue = new Lazy<Task<object>>(node.ComputeNodeValueAsync);
+                            stack.Push(dependentNodeIndex);
+                        }
                     }
                 }
-                else
-                {
-                    Console.WriteLine($"Refreshing dependencies starting from index {index}");
-                    var dependentNodes = GetDependentNodes(index);
-                    foreach (var dependentNodeIndex in dependentNodes)
-                    {
-                        stack.Push(dependentNodeIndex);
-                    }
-                }
+            }
+            finally
+            {
+                _lock.Release();
             }
         }
     }
 }
+
+

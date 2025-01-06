@@ -14,7 +14,12 @@
         {
             try
             {
-                return await _computeNodeValue();
+                var result = await _computeNodeValue();
+                if (Cell is Cell<object> reactiveCell)
+                {
+                    reactiveCell.Value = result;
+                }
+                return result;
             }
             catch (Exception ex)
             {
