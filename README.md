@@ -37,7 +37,7 @@ The **ReactiveDAG** project provides a flexible and scalable framework for manag
 
 - Manage complex backend tasks such as dynamic database connection pooling, orchestrating API requests, handling service dependencies, managing event-driven workflows, and enabling reactive monitoring and configuration updates in a modular and efficient way.
 - Manage complex workflows involving real-time data processing, decision-making, and task dependencies, such as for transaction handling, risk analysis, or dynamic calculations.
-- 
+
 ## How it Works:
 1. Define input cells to represent individual spreadsheet cells.
 2. Use function cells to define formulas that depend on input cells.
