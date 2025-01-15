@@ -46,7 +46,7 @@ The **ReactiveDAG** project provides a flexible and scalable framework for manag
 
 ## Basic example:
 Model and compute a set of dependent operations (inputs, functions, and their results) in a structured way.
-The code below highlights how the inputs can be updated (in this case every 100 iterations) which automatically propagate through the DAG.
+The code below highlights how the the dag can run simulations where the inputs are updated dynamically, (in this case every 100 iterations) which automatically propagate through the DAG.
 <pre><code>
         var builder = Builder.Create();
         builder.AddInput(GenerateRandomAssetPrice(), out var assetPrice)
