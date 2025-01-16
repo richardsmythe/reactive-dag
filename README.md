@@ -81,4 +81,4 @@ The code below highlights how the the dag can run simulations where the inputs a
 </code></pre>
 
 ## Nuget
-ReactiveDag is available as a <a href="https://www.nuget.org/packages/ReactiveDAG>"Nuget package.</a>
+ReactiveDag is available as a <a href="https://www.nuget.org/packages/ReactiveDAG">Nuget package.</a>
