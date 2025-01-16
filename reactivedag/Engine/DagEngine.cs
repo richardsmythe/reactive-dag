@@ -13,7 +13,7 @@ namespace ReactiveDAG.Core.Engine
     public class DagEngine
     {
         private readonly ConcurrentDictionary<int, DagNode> _nodes = new ConcurrentDictionary<int, DagNode>();
-        private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1); // Semaphore for concurrency control
+        private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
 
         private int _nextIndex = 0;
         public int NodeCount => _nodes.Count;
