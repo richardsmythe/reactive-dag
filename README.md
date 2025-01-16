@@ -80,4 +80,5 @@ The code below highlights how the the dag can run simulations where the inputs a
   Console.WriteLine($"Average simulated future price: {averagePrice}");
 </code></pre>
 
-
+## Nuget
+ReactiveDag is available as a <a href="https://www.nuget.org/packages/ReactiveDAG>"Nuget package.</a>
