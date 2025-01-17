@@ -1,6 +1,7 @@
 ﻿using ReactiveDAG.Core.Models;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace ReactiveDAG.Core.Engine
 {
@@ -30,11 +31,45 @@ namespace ReactiveDAG.Core.Engine
             return (T)result;
         }
 
+        public async IAsyncEnumerable<T> GetResultStream<T>(BaseCell cell, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            if (!_nodes.TryGetValue(cell.Index, out var node))
+            {
+                throw new InvalidOperationException("Node not found.");
+            }
+
+            var completionSource = new TaskCompletionSource<bool>();
+            void OnNodeUpdated() => completionSource.TrySetResult(true);
+
+            try
+            {
+                node.NodeUpdated += OnNodeUpdated;
+
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    await Task.WhenAny(completionSource.Task, Task.Delay(Timeout.Infinite, cancellationToken)).ConfigureAwait(false);
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
+                    completionSource = new TaskCompletionSource<bool>();
+                    var result = await node.DeferredComputedNodeValue.Value;
+                    yield return (T)result;
+                }
+            }
+            finally
+            {
+                node.NodeUpdated -= OnNodeUpdated;
+                completionSource.TrySetCanceled();
+            }
+
+        }
+
         public void RemoveNode(BaseCell cell)
         {
             if (_nodes.TryRemove(cell.Index, out var node))
             {
-                node.DisposeSubscriptions();       
+                node.DisposeSubscriptions();
                 foreach (var dependentIndex in GetDependentNodes(cell.Index))
                 {
                     _nodes[dependentIndex].Dependencies.Remove(cell.Index);

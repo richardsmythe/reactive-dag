@@ -1,5 +1,6 @@
 using ReactiveDAG.Core.Engine;
 using ReactiveDAG.Core.Models;
+using System.Xml.Linq;
 
 namespace ReactiveDAG.tests
 {
@@ -383,6 +384,88 @@ namespace ReactiveDAG.tests
             await Task.WhenAll(tasks);
         }
 
-        
+
+
+        [Fact]
+        public async Task Test_GetResultStream_ContinuouslyYields()
+        {
+            // Arrange
+            var dag = new DagEngine();
+            var cell = dag.AddInput(1); // Initial value
+            var functionCell = dag.AddFunction(new BaseCell[] { cell },
+                inputs =>
+                {
+                    int currentValue = (int)inputs[0];
+                    Console.WriteLine($"Computing: {currentValue} * 2 = {currentValue * 2}"); // Debugging output
+                    return currentValue * 2;
+                });
+
+            var results = new List<int>();
+            var cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
+
+            // Act
+            var resultStreamTask = Task.Run(async () =>
+            {
+                try
+                {
+                    await foreach (var result in dag.GetResultStream<int>(functionCell, cancellationToken)) // Use cancellation token
+                    {
+                        Console.WriteLine($"Result yielded: {result}"); // Debugging output
+                        results.Add(result);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error in result stream: {ex.Message}"); // Debugging output
+                }
+            });
+
+            // Simulate continuous updates by periodically updating the input
+            await Task.Delay(500); // Initial delay before starting updates
+
+            // Update the input and trigger recalculations
+            for (int i = 0; i < 5; i++)
+            {
+                Console.WriteLine($"Updating input: {cell.Value} -> {cell.Value * 2}"); // Debugging output
+                dag.UpdateInput(cell, (int)cell.Value * 2); // Multiply by 2 each time
+                Console.WriteLine($"Input updated to: {cell.Value}"); // Debugging output for input change
+
+                // Manually trigger NodeUpdated to simulate event firing after each update
+                functionCell.NotifyUpdatedNode(); // Explicitly fire the event
+
+                await Task.Delay(100); // Simulate time delay between updates
+            }
+
+            // Wait a bit before cancelling to ensure some results are yielded
+            await Task.Delay(500); // Allow results to be yielded
+
+            // Cancel the token after the delay
+            cancellationTokenSource.Cancel();
+            Console.WriteLine("Cancellation token cancelled.");
+
+            // Wait for the result stream task to complete
+            await resultStreamTask;
+
+            // Assert
+            Console.WriteLine($"Results Count: {results.Count}"); // Debugging output
+            foreach (var result in results)
+            {
+                Console.WriteLine($"Result: {result}"); // Debugging output
+            }
+
+            Assert.Equal(5, results.Count); // We should have 5 results
+            Assert.Equal(1, results[0]); // Initial value: 1
+            Assert.Equal(2, results[1]); // First update: 1 * 2
+            Assert.Equal(4, results[2]); // Second update: 2 * 2
+            Assert.Equal(8, results[3]); // Third update: 4 * 2
+            Assert.Equal(16, results[4]); // Fourth update: 8 * 2
+        }
+
+
+
+
+
+
     }
 }

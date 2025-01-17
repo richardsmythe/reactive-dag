@@ -3,13 +3,17 @@
     public class DagNode : DagNodeBase
     {
         private readonly Func<Task<object>> _computeNodeValue;
-
+        public event Action NodeUpdated;
         public DagNode(BaseCell cell, Func<Task<object>> computeValue)
             : base(cell, computeValue)
         {
             _computeNodeValue = computeValue;
         }
 
+        public void NotifyUpdatedNode()
+        {
+            NodeUpdated?.Invoke();
+        }
         public override async Task<object> ComputeNodeValueAsync()
         {
             try
@@ -19,6 +23,7 @@
                 {
                     reactiveCell.Value = result;
                 }
+                NotifyUpdatedNode();
                 return result;
             }
             catch (Exception ex)
