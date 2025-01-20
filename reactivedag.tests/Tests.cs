@@ -1,6 +1,5 @@
 using ReactiveDAG.Core.Engine;
 using ReactiveDAG.Core.Models;
-using System.Xml.Linq;
 
 namespace ReactiveDAG.tests
 {
@@ -36,12 +35,12 @@ namespace ReactiveDAG.tests
             var inputCell1 = dag.AddInput(4);
             var inputCell2 = dag.AddInput(4);
             var functionCell = dag.AddFunction(new BaseCell[] { inputCell1, inputCell2 },
-                inputs => (int)inputs[0] * (int)inputs[1]            );
+                inputs => (int)inputs[0] * (int)inputs[1]);
             var initialResult = await dag.GetResult<int>(functionCell);
             Assert.Equal(16, initialResult);
-            dag.UpdateInput(inputCell1, 5);
+            await dag.UpdateInput(inputCell1, 5);
             var updatedResult = await dag.GetResult<int>(functionCell);
-            Assert.Equal(20, updatedResult); 
+            Assert.Equal(20, updatedResult);
         }
 
         [Fact]
@@ -66,7 +65,7 @@ namespace ReactiveDAG.tests
             Assert.True(isCyclic);
         }
 
-            [Fact]
+        [Fact]
         public async Task Test_Chaining_Functions()
         {
             var dag = new DagEngine();
@@ -82,7 +81,7 @@ namespace ReactiveDAG.tests
             var additionResult = await dag.GetResult<double>(additionFuncCell);
             Assert.Equal("RS", concatResult);
             Assert.Equal(6.5, additionResult);
-        }    
+        }
 
 
         [Fact]
@@ -144,7 +143,7 @@ namespace ReactiveDAG.tests
             var initialResult = await dag.GetResult<int>(functionCell);
             Assert.Equal(50, initialResult);
             Assert.False(dag.HasChanged(inputCell));
-            dag.UpdateInput(inputCell, 4);
+            await dag.UpdateInput(inputCell, 4);
             var updatedResult = await dag.GetResult<int>(functionCell);
             Assert.Equal(8, updatedResult);
             Assert.True(dag.HasChanged(inputCell));
@@ -199,7 +198,7 @@ namespace ReactiveDAG.tests
             var result = await dag.GetResult<double[]>(matrixAdditionFunctionCell);
             var expectedResult = new double[] { 7.0, 8.0, 5.0, -3.0 };
             Assert.Equal(expectedResult, result);
-            dag.UpdateInput(matrixA[0], 4.0);
+            await dag.UpdateInput(matrixA[0], 4.0);
             var updatedResult = await dag.GetResult<double[]>(matrixAdditionFunctionCell);
             var expectedUpdate = new double[] { 8.0, 8.0, 5.0, -3.0 };
             Assert.Equal(expectedUpdate, updatedResult);
@@ -310,7 +309,7 @@ namespace ReactiveDAG.tests
             var dag = new DagEngine();
             var heightCell = dag.AddInput(new List<double> { 60, 62, 65, 70, 72 });
             var weightCell = dag.AddInput(new List<double> { 120, 130, 150, 168, 170 });
-            var ageCell = dag.AddInput(new List<double> { 25, 30, 35, 40, 45 });         
+            var ageCell = dag.AddInput(new List<double> { 25, 30, 35, 40, 45 });
             var covHeightWeightCell = dag.AddFunction(new BaseCell[] { heightCell, weightCell }, inputs =>
             {
                 var heights = (List<double>)inputs[0];
@@ -384,85 +383,41 @@ namespace ReactiveDAG.tests
             await Task.WhenAll(tasks);
         }
 
-
-
         [Fact]
-        public async Task Test_GetResultStream_ContinuouslyYields()
+        public async Task Test_GetStreamResults()
         {
-            // Arrange
-            var dag = new DagEngine();
-            var cell = dag.AddInput(1); // Initial value
-            var functionCell = dag.AddFunction(new BaseCell[] { cell },
-                inputs =>
+            var builder = Builder.Create()
+                .AddInput(1, out var cell1)
+                .AddFunction(inputs =>
                 {
-                    int currentValue = (int)inputs[0];
-                    Console.WriteLine($"Computing: {currentValue} * 2 = {currentValue * 2}"); // Debugging output
-                    return currentValue * 2;
-                });
+                    var value = Convert.ToDouble(inputs.First());
+                    return value * 2;
+                }, out var result)
+                .Build();
+            var cts = new CancellationTokenSource();
+            var stream = builder.GetResultStream(result, cts.Token);
 
-            var results = new List<int>();
-            var cancellationTokenSource = new CancellationTokenSource();
-            var cancellationToken = cancellationTokenSource.Token;
-
-            // Act
-            var resultStreamTask = Task.Run(async () =>
+            var streamTask = Task.Run(async () =>
             {
-                try
+                var results = new List<double>();
+                await foreach (var value in stream)
                 {
-                    await foreach (var result in dag.GetResultStream<int>(functionCell, cancellationToken)) // Use cancellation token
-                    {
-                        Console.WriteLine($"Result yielded: {result}"); // Debugging output
-                        results.Add(result);
-                    }
+                    results.Add(value);
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error in result stream: {ex.Message}"); // Debugging output
-                }
+                return results;
             });
 
-            // Simulate continuous updates by periodically updating the input
-            await Task.Delay(500); // Initial delay before starting updates
-
-            // Update the input and trigger recalculations
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 6; i++)
             {
-                Console.WriteLine($"Updating input: {cell.Value} -> {cell.Value * 2}"); // Debugging output
-                dag.UpdateInput(cell, (int)cell.Value * 2); // Multiply by 2 each time
-                Console.WriteLine($"Input updated to: {cell.Value}"); // Debugging output for input change
-
-                // Manually trigger NodeUpdated to simulate event firing after each update
-                functionCell.NotifyUpdatedNode(); // Explicitly fire the event
-
-                await Task.Delay(100); // Simulate time delay between updates
+                await builder.UpdateInput(cell1, i);
+                await Task.Delay(1);
             }
 
-            // Wait a bit before cancelling to ensure some results are yielded
-            await Task.Delay(500); // Allow results to be yielded
-
-            // Cancel the token after the delay
-            cancellationTokenSource.Cancel();
-            Console.WriteLine("Cancellation token cancelled.");
-
-            // Wait for the result stream task to complete
-            await resultStreamTask;
-
-            // Assert
-            Console.WriteLine($"Results Count: {results.Count}"); // Debugging output
-            foreach (var result in results)
-            {
-                Console.WriteLine($"Result: {result}"); // Debugging output
-            }
-
-            Assert.Equal(5, results.Count); // We should have 5 results
-            Assert.Equal(1, results[0]); // Initial value: 1
-            Assert.Equal(2, results[1]); // First update: 1 * 2
-            Assert.Equal(4, results[2]); // Second update: 2 * 2
-            Assert.Equal(8, results[3]); // Third update: 4 * 2
-            Assert.Equal(16, results[4]); // Fourth update: 8 * 2
+            cts.Cancel();
+            var results = await streamTask;
+            var expectedResults = new[] { 2.0, 4.0, 6.0, 8.0, 10.0 };
+            Assert.Equal(expectedResults, results);
         }
-
-
 
 
 

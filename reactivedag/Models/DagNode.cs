@@ -1,35 +1,47 @@
-﻿namespace ReactiveDAG.Core.Models
-{
-    public class DagNode : DagNodeBase
-    {
-        private readonly Func<Task<object>> _computeNodeValue;
-        public event Action NodeUpdated;
-        public DagNode(BaseCell cell, Func<Task<object>> computeValue)
-            : base(cell, computeValue)
-        {
-            _computeNodeValue = computeValue;
-        }
+﻿using ReactiveDAG.Core.Models;
 
-        public void NotifyUpdatedNode()
+public class DagNode : DagNodeBase
+{
+    private readonly Func<Task<object>> _computeNodeValue;
+
+    public event Action NodeUpdated;
+
+    public DagNode(BaseCell cell, Func<Task<object>> computeValue)
+        : base(cell, computeValue)
+    {
+        _computeNodeValue = computeValue;
+    }
+
+    public T GetCellValue<T>()
+    {
+        if (Cell is Cell<T> typedCell)
         {
-            NodeUpdated?.Invoke();
+            return typedCell.Value;
         }
-        public override async Task<object> ComputeNodeValueAsync()
+        throw new InvalidOperationException("Cell is not of the expected type.");
+    }
+
+    public void NotifyUpdatedNode()
+    {
+        NodeUpdated?.Invoke();
+    }
+
+    public override async Task<object> ComputeNodeValueAsync()
+    {
+        try
         {
-            try
+            var result = await _computeNodeValue();
+            if (Cell is Cell<object> reactiveCell)
             {
-                var result = await _computeNodeValue();
-                if (Cell is Cell<object> reactiveCell)
-                {
-                    reactiveCell.Value = result;
-                }
-                NotifyUpdatedNode();
-                return result;
+                reactiveCell.Value = result;
             }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException("Error computing node value.", ex);
-            }
+            NotifyUpdatedNode(); 
+            return result;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Error computing node value.", ex);
         }
     }
+
 }

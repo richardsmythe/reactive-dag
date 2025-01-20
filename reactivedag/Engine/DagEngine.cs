@@ -31,39 +31,20 @@ namespace ReactiveDAG.Core.Engine
             return (T)result;
         }
 
-        public async IAsyncEnumerable<T> GetResultStream<T>(BaseCell cell, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        public async IAsyncEnumerable<T> GetResultStream<T>(Cell<T> cell, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            if (!_nodes.TryGetValue(cell.Index, out var node))
+            T lastResult = default;
+            while (!cancellationToken.IsCancellationRequested)
             {
-                throw new InvalidOperationException("Node not found.");
-            }
-
-            var completionSource = new TaskCompletionSource<bool>();
-            void OnNodeUpdated() => completionSource.TrySetResult(true);
-
-            try
-            {
-                node.NodeUpdated += OnNodeUpdated;
-
-                while (!cancellationToken.IsCancellationRequested)
+                var result = await GetResult<T>(cell);
+                if (!EqualityComparer<T>.Default.Equals(lastResult, result))
                 {
-                    await Task.WhenAny(completionSource.Task, Task.Delay(Timeout.Infinite, cancellationToken)).ConfigureAwait(false);
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        break;
-                    }
-                    completionSource = new TaskCompletionSource<bool>();
-                    var result = await node.DeferredComputedNodeValue.Value;
-                    yield return (T)result;
+                    yield return result;
+                    lastResult = result;
                 }
             }
-            finally
-            {
-                node.NodeUpdated -= OnNodeUpdated;
-                completionSource.TrySetCanceled();
-            }
-
         }
+
 
         public void RemoveNode(BaseCell cell)
         {
@@ -137,7 +118,7 @@ namespace ReactiveDAG.Core.Engine
             return !EqualityComparer<T>.Default.Equals(cell.PreviousValue, cell.Value);
         }
 
-        public void UpdateInput<T>(Cell<T> cell, T value)
+        public async Task UpdateInput<T>(Cell<T> cell, T value)
         {
             if (!EqualityComparer<T>.Default.Equals(cell.Value, value))
             {
@@ -145,11 +126,11 @@ namespace ReactiveDAG.Core.Engine
                 cell.Value = value;
                 var node = _nodes[cell.Index];
                 node.DeferredComputedNodeValue = new Lazy<Task<object>>(() => Task.FromResult<object>(value));
-                UpdateAndRefresh(cell.Index, UpdateMode.Update);
+                await UpdateAndRefresh(cell.Index, UpdateMode.Update);
             }
         }
 
-        private async void UpdateAndRefresh(int startIndex, UpdateMode mode)
+        private async Task UpdateAndRefresh(int startIndex, UpdateMode mode)
         {
             var visited = new HashSet<int>();
             var stack = new Stack<int>();

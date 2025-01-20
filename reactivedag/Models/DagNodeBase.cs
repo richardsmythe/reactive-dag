@@ -25,7 +25,7 @@
                 var subscription = dependency.Subscribe(async _ =>
                 {
                     await ComputeNodeValueAsync();
-                });
+                });     
                 Subscriptions.Add(subscription);
             }
             DeferredComputedNodeValue = new Lazy<Task<object>>(computeNodeValue);
