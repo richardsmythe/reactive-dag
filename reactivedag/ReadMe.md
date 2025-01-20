@@ -48,3 +48,4 @@ How it Works:
 Please refer to the github page for some code examples.
 
 ### License
+Apache-2.0 license
