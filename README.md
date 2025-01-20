@@ -44,7 +44,7 @@ The **ReactiveDAG** project provides a flexible and scalable framework for manag
 3. Update the value of an input cell using `UpdateInput`.
 4. The system recalculates and propagates changes to all dependent cells efficiently.
 
-## Basic example:
+## Example 1:
 Model and compute a set of dependent operations (inputs, functions, and their results) in a structured way.
 The code below highlights how the the dag can run simulations where the inputs are updated dynamically, (in this case every 100 iterations) which automatically propagate through the DAG.
 <pre><code>
@@ -78,6 +78,27 @@ The code below highlights how the the dag can run simulations where the inputs a
 
   var averagePrice = results.Average();
   Console.WriteLine($"Average simulated future price: {averagePrice}");
+</code></pre>
+
+## Example 2:
+Create a simple DAG that sums 3 inputs. When a cell is updated the results are recomputed dynamically.
+<pre><code>
+var builder = Builder.Create()
+    .AddInput(6.2, out var cell1)
+    .AddInput(4, out var cell2)
+    .AddInput(2, out var cell3)
+    .AddFunction(inputs =>
+    {
+        var sum = inputs.Select(i => Convert.ToDouble(i)).Sum();
+        return sum;
+    }, out var result)
+    .Build();
+
+Console.WriteLine($"Created cell1: {cell1.Value}, cell2: {cell2.Value}, and cell3: {cell3.Value}");
+Console.WriteLine($"Sum of cells: {await builder.GetResult<double>(result)}");
+await builder.UpdateInput(cell2, 5);
+await builder.UpdateInput(cell3, 6);
+Console.WriteLine($"Updated Result: {await builder.GetResult<double>(result)}");
 </code></pre>
 
 ## Nuget
