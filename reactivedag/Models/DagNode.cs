@@ -3,6 +3,8 @@
 public class DagNode : DagNodeBase
 {
     private readonly Func<Task<object>> _computeNodeValue;
+    private readonly SemaphoreSlim _computeLock = new SemaphoreSlim(1, 1);
+
 
     public event Action NodeUpdated;
 
@@ -26,21 +28,25 @@ public class DagNode : DagNodeBase
         NodeUpdated?.Invoke();
     }
 
+
     public override async Task<object> ComputeNodeValueAsync()
     {
+        await _computeLock.WaitAsync(); 
+
         try
         {
-            var result = await _computeNodeValue();
+            var result = await _computeNodeValue(); 
+
             if (Cell is Cell<object> reactiveCell)
             {
                 reactiveCell.Value = result;
             }
-            NotifyUpdatedNode(); 
+            NotifyUpdatedNode();
             return result;
         }
-        catch (Exception ex)
+        finally
         {
-            throw new InvalidOperationException("Error computing node value.", ex);
+            _computeLock.Release();
         }
     }
 

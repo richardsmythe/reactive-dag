@@ -1,4 +1,7 @@
-﻿namespace ReactiveDAG.Core.Models
+﻿using System;
+using System.Runtime.Intrinsics.Arm;
+
+namespace ReactiveDAG.Core.Models
 {
     public abstract class DagNodeBase
     {
@@ -12,24 +15,27 @@
             Func<Task<object>> computeNodeValue)
         {
             Cell = cell;
-            DeferredComputedNodeValue = new Lazy<Task<object>>(computeNodeValue);
+            DeferredComputedNodeValue = new Lazy<Task<object>>(computeNodeValue, LazyThreadSafetyMode.ExecutionAndPublication);
             Subscriptions = new List<IDisposable>();
         }
 
         public abstract Task<object> ComputeNodeValueAsync();
 
-        public void ConnectDependencies(IEnumerable<Cell<object>> dependencyCells, Func<Task<object>> computeNodeValue)
+        public void ConnectDependencies(IEnumerable<BaseCell> dependencyCells, Func<Task<object>> computeNodeValue)
         {
             foreach (var dependency in dependencyCells)
             {
-                var subscription = dependency.Subscribe(async _ =>
+                var subscription = dependency.Subscribe(async value =>
                 {
+                    Console.WriteLine($"Connecting dependency: Node {dependency.Index} to Node {this.Cell.Index}");
                     await ComputeNodeValueAsync();
-                });     
+                });
                 Subscriptions.Add(subscription);
             }
-            DeferredComputedNodeValue = new Lazy<Task<object>>(computeNodeValue);
+            DeferredComputedNodeValue = new Lazy<Task<object>>(computeNodeValue, LazyThreadSafetyMode.ExecutionAndPublication);
         }
+
+
         public void DisposeSubscriptions()
         {
             foreach (var subscription in Subscriptions)

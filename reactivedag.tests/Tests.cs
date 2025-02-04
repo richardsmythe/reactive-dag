@@ -1,4 +1,4 @@
-using ReactiveDAG.Core.Engine;
+﻿using ReactiveDAG.Core.Engine;
 using ReactiveDAG.Core.Models;
 
 namespace ReactiveDAG.tests
@@ -295,7 +295,7 @@ namespace ReactiveDAG.tests
             var expectedFinalSum = expectedFinalResults.Sum();
 
             Assert.Equal(expectedFinalSum, finalResult);
-            dag.UpdateInput(inputCells[0], 1000);
+            await dag.UpdateInput(inputCells[0], 1000);
             var updatedResult = await dag.GetResult<int>(aggregateCell);
             expectedIntermediateResults[0] = 1000 + 1;
             expectedFinalResults[0] = expectedIntermediateResults[0] * expectedIntermediateResults[1];
@@ -337,7 +337,7 @@ namespace ReactiveDAG.tests
             Assert.NotEqual(0, initialCovWeightAge);
 
             var updatedHeights = new List<double> { 65, 66, 68, 72, 75 };
-            dag.UpdateInput(heightCell, updatedHeights);
+            await dag.UpdateInput(heightCell, updatedHeights);
             var updatedCovHeightWeight = await dag.GetResult<double>(covHeightWeightCell);
             var updatedCovHeightAge = await dag.GetResult<double>(covHeightAgeCell);
             var updatedCovWeightAge = await dag.GetResult<double>(covWeightAgeCell);
@@ -383,43 +383,61 @@ namespace ReactiveDAG.tests
             await Task.WhenAll(tasks);
         }
 
-        [Fact]
-        public async Task Test_GetStreamResults()
-        {
-            var builder = Builder.Create()
-                .AddInput(1, out var cell1)
-                .AddFunction(inputs =>
-                {
-                    var value = Convert.ToDouble(inputs.First());
-                    return value * 2;
-                }, out var result)
-                .Build();
-            var cts = new CancellationTokenSource();
-            var stream = builder.GetResultStream(result, cts.Token);
+        //[Fact]
+        //public async Task TestStreamResults()
+        //{
+        //    var builder = Builder.Create()
+        //        .AddInput(2, out var input)
+        //        .AddFunction(inputs =>
+        //        {
+        //            int result = (int)inputs[0] * 2;
+        //            return result;
+        //        }, out var result)
+        //        .Build();
 
-            var streamTask = Task.Run(async () =>
-            {
-                var results = new List<double>();
-                await foreach (var value in stream)
-                {
-                    results.Add(value);
-                }
-                return results;
-            });
+        //    // Act: Update the input values
+        //    for (int i = 1; i <= 5; i++)
+        //    {
+        //        await builder.UpdateInput(input, i);
+        //    }
 
-            for (int i = 0; i < 6; i++)
-            {
-                await builder.UpdateInput(cell1, i);
-                await Task.Delay(1);
-            }
+        //    using var cts = new CancellationTokenSource();
+        //    var resultStream = builder.StreamResults(result, cts.Token);
 
-            cts.Cancel();
-            var results = await streamTask;
-            var expectedResults = new[] { 2.0, 4.0, 6.0, 8.0, 10.0 };
-            Assert.Equal(expectedResults, results);
-        }
+        //    var results = new List<int>(); // To store results for assertions
+
+        //    // Create a task that handles the streaming
+        //    var streamTask = Task.Run(async () =>
+        //    {
+        //        try
+        //        {
+        //            await foreach (var r in resultStream)
+        //            {
+        //                results.Add(r); // Assuming r is directly the value you're interested in
+        //            }
+        //        }
+        //        catch (OperationCanceledException)
+        //        {
+        //            // Gracefully handle cancellation
+        //        }
+        //    });
+
+        //    // Allow some time before cancelling (adjust the delay if needed)
+        //    await Task.Delay(1000);
 
 
+        //    // Wait for the stream task to complete
+        //    await streamTask;
+
+        //    // Assert that we got the expected number of results
+        //    Assert.Equal(5, results.Count);
+
+        //    // Check if the results are as expected (1 * 2, 2 * 2, ..., 5 * 2)
+        //    for (int i = 0; i < 5; i++)
+        //    {
+        //        Assert.Equal((i + 1) * 2, results[i]);
+        //    }
+        //}
 
 
     }

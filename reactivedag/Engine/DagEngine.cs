@@ -2,6 +2,8 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Threading.Channels;
+using System.Xml.Linq;
 
 namespace ReactiveDAG.Core.Engine
 {
@@ -59,16 +61,46 @@ namespace ReactiveDAG.Core.Engine
         /// <param name="cell">The cell whose result is to be streamed.</param>
         /// <param name="cancellationToken">Cancellation token to stop the streaming.</param>
         /// <returns>An asynchronous stream of results for the cell.</returns>
-        public async IAsyncEnumerable<T> GetResultStream<T>(Cell<T> cell, [EnumeratorCancellation] CancellationToken cancellationToken)
+        public async IAsyncEnumerable<T> StreamResults<T>(Cell<T> cell, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            T lastResult = default;
-            while (!cancellationToken.IsCancellationRequested)
+            if (!_nodes.TryGetValue(cell.Index, out var node))
             {
-                var result = await GetResult<T>(cell);
-                if (!EqualityComparer<T>.Default.Equals(lastResult, result))
+                throw new InvalidOperationException("Node not found.");
+            }
+
+            var channel = Channel.CreateUnbounded<T>();
+            async void Handler()
+            {
+                try
                 {
-                    yield return result;
-                    lastResult = result;
+                    if (cancellationToken.IsCancellationRequested) return;
+                    var newValue = await GetResult<T>(cell);
+                    if (!channel.Writer.TryWrite(newValue) && !cancellationToken.IsCancellationRequested)
+                    {
+                        Console.WriteLine($"Error writing: {newValue}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error: {ex.Message}");
+                }
+            }
+
+            node.NodeUpdated += Handler;
+
+            try
+            {
+                await foreach (var value in channel.Reader.ReadAllAsync(cancellationToken))
+                {
+                    yield return value;
+                }
+            }
+            finally
+            {
+                node.NodeUpdated -= Handler;
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    channel.Writer.TryComplete();
                 }
             }
         }
@@ -89,7 +121,7 @@ namespace ReactiveDAG.Core.Engine
                 foreach (var dependentIndex in GetDependentNodes(cell.Index))
                 {
                     var dependentNode = _nodes[dependentIndex];
-                    dependentNode.DeferredComputedNodeValue = new Lazy<Task<object>>(dependentNode.ComputeNodeValueAsync);
+                    dependentNode.DeferredComputedNodeValue = new Lazy<Task<object>>(dependentNode.ComputeNodeValueAsync, LazyThreadSafetyMode.ExecutionAndPublication);
                 }
             }
         }
@@ -125,8 +157,19 @@ namespace ReactiveDAG.Core.Engine
             var cell = Cell<TResult>.CreateFunctionCell(_nextIndex++);
             var node = new DagNode(cell, async () =>
             {
-                var inputValues = await Task.WhenAll(cells.Select(c => _nodes[c.Index].DeferredComputedNodeValue.Value));
+                Console.WriteLine($"[DagNode {cell.Index}] Starting computation. Waiting for dependencies...");
+
+                var inputValues = await Task.WhenAll(cells.Select(c =>
+                {
+                    Console.WriteLine($"[DagNode {cell.Index}] Waiting for dependency cell {c.Index} value.");
+                    return _nodes[c.Index].DeferredComputedNodeValue.Value;
+                }));
+
+                Console.WriteLine($"[DagNode {cell.Index}] All dependency values received: {string.Join(", ", inputValues)}");
+
                 var result = function(inputValues);
+
+                //Console.WriteLine($"[DagNode {cell.Index}] Computation complete. Result: {result}");
                 return result;
             });
             _nodes[cell.Index] = node;
@@ -138,7 +181,8 @@ namespace ReactiveDAG.Core.Engine
                 node.Dependencies.Add(c.Index);
             }
 
-            var dependencyCells = cells.OfType<Cell<object>>();
+            //var dependencyCells = cells.OfType<Cell<object>>();
+            var dependencyCells = cells.OfType<BaseCell>();
             node.ConnectDependencies(dependencyCells, node.ComputeNodeValueAsync);
             return cell;
         }
@@ -190,8 +234,11 @@ namespace ReactiveDAG.Core.Engine
                 cell.PreviousValue = cell.Value;
                 cell.Value = value;
                 var node = _nodes[cell.Index];
-                node.DeferredComputedNodeValue = new Lazy<Task<object>>(() => Task.FromResult<object>(value));
+                node.DeferredComputedNodeValue = new Lazy<Task<object>>(() => Task.FromResult<object>(value), LazyThreadSafetyMode.ExecutionAndPublication);
+                node.NotifyUpdatedNode();
+                Console.WriteLine($"Updating input for cell {cell.Index} to value: {value}");
                 await UpdateAndRefresh(cell.Index, UpdateMode.Update);
+
             }
         }
 
@@ -205,33 +252,23 @@ namespace ReactiveDAG.Core.Engine
             var visited = new HashSet<int>();
             var stack = new Stack<int>();
             stack.Push(startIndex);
+
             await _lock.WaitAsync();
+
             try
             {
                 while (stack.Count > 0)
                 {
                     var index = stack.Pop();
                     if (!visited.Add(index)) continue;
-
                     var node = _nodes[index];
                     var dependentNodes = GetDependentNodes(index).ToList();
-
-                    if (mode == UpdateMode.RefreshDependencies)
+                    await node.DeferredComputedNodeValue.Value;
+                    foreach (var dependentNodeIndex in dependentNodes)
                     {
-                        node.DisposeSubscriptions();
-                        var dependencyCells = dependentNodes
-                            .Select(depIndex => _nodes[depIndex].Cell)
-                            .OfType<Cell<object>>();
-                        node.ConnectDependencies(dependencyCells, node.ComputeNodeValueAsync);
-                    }
-                    else if (mode == UpdateMode.Update)
-                    {
-                        foreach (var dependentNodeIndex in dependentNodes)
-                        {
-                            node = _nodes[dependentNodeIndex];
-                            node.DeferredComputedNodeValue = new Lazy<Task<object>>(node.ComputeNodeValueAsync);
-                            stack.Push(dependentNodeIndex);
-                        }
+                        var dependentNode = _nodes[dependentNodeIndex];
+                        dependentNode.DeferredComputedNodeValue = new Lazy<Task<object>>(dependentNode.ComputeNodeValueAsync, LazyThreadSafetyMode.ExecutionAndPublication);
+                        stack.Push(dependentNodeIndex);
                     }
                 }
             }
