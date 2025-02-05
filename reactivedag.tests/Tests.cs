@@ -383,62 +383,7 @@ namespace ReactiveDAG.tests
             await Task.WhenAll(tasks);
         }
 
-        //[Fact]
-        //public async Task TestStreamResults()
-        //{
-        //    var builder = Builder.Create()
-        //        .AddInput(2, out var input)
-        //        .AddFunction(inputs =>
-        //        {
-        //            int result = (int)inputs[0] * 2;
-        //            return result;
-        //        }, out var result)
-        //        .Build();
-
-        //    // Act: Update the input values
-        //    for (int i = 1; i <= 5; i++)
-        //    {
-        //        await builder.UpdateInput(input, i);
-        //    }
-
-        //    using var cts = new CancellationTokenSource();
-        //    var resultStream = builder.StreamResults(result, cts.Token);
-
-        //    var results = new List<int>(); // To store results for assertions
-
-        //    // Create a task that handles the streaming
-        //    var streamTask = Task.Run(async () =>
-        //    {
-        //        try
-        //        {
-        //            await foreach (var r in resultStream)
-        //            {
-        //                results.Add(r); // Assuming r is directly the value you're interested in
-        //            }
-        //        }
-        //        catch (OperationCanceledException)
-        //        {
-        //            // Gracefully handle cancellation
-        //        }
-        //    });
-
-        //    // Allow some time before cancelling (adjust the delay if needed)
-        //    await Task.Delay(1000);
-
-
-        //    // Wait for the stream task to complete
-        //    await streamTask;
-
-        //    // Assert that we got the expected number of results
-        //    Assert.Equal(5, results.Count);
-
-        //    // Check if the results are as expected (1 * 2, 2 * 2, ..., 5 * 2)
-        //    for (int i = 0; i < 5; i++)
-        //    {
-        //        Assert.Equal((i + 1) * 2, results[i]);
-        //    }
-        //}
-
+   
 
     }
 }

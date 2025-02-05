@@ -27,10 +27,10 @@ class Program
         for (int i = 1; i <= 5; i++)
         {
             await builder.UpdateInput(input, i);
-        
+            await Task.Delay(1); // allow delay to show intermediate results
         }
 
-        await streamingTask; 
+        await streamingTask;
         cts.Cancel();
     }
 }

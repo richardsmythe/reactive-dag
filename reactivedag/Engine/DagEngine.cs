@@ -1,21 +1,10 @@
 ﻿using ReactiveDAG.Core.Models;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
-using System.Xml.Linq;
 
 namespace ReactiveDAG.Core.Engine
 {
-    /// <summary>
-    /// Enum representing the update modes for the DAG engine.
-    /// </summary>
-    public enum UpdateMode
-    {
-        Update,
-        RefreshDependencies
-    }
-
     /// <summary>
     /// The main engine that manages the execution of the Directed Acyclic Graph (DAG).
     /// Handles the creation, updates, and removal of nodes and manages the dependencies between cells.
@@ -24,8 +13,14 @@ namespace ReactiveDAG.Core.Engine
     {
         private readonly ConcurrentDictionary<int, DagNode> _nodes = new ConcurrentDictionary<int, DagNode>();
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
-
         private int _nextIndex = 0;
+
+        /// <summary>
+        /// Gets the indices of nodes that depend on the specified node index.
+        /// </summary>
+        private IEnumerable<int> GetDependentNodes(int index)
+            => _nodes.Where(n => n.Value.Dependencies.Contains(index)).Select(n => n.Key);
+
         /// <summary>
         /// Gets the total number of nodes in the DAG.
         /// </summary>
@@ -126,10 +121,6 @@ namespace ReactiveDAG.Core.Engine
             }
         }
 
-        private IEnumerable<int> GetDependentNodes(int index)
-            => _nodes.Where(n => n.Value.Dependencies.Contains(index)).Select(n => n.Key);
-
-
         /// <summary>
         /// Adds a new input cell to the DAG.
         /// </summary>
@@ -157,19 +148,11 @@ namespace ReactiveDAG.Core.Engine
             var cell = Cell<TResult>.CreateFunctionCell(_nextIndex++);
             var node = new DagNode(cell, async () =>
             {
-                Console.WriteLine($"[DagNode {cell.Index}] Starting computation. Waiting for dependencies...");
-
                 var inputValues = await Task.WhenAll(cells.Select(c =>
                 {
-                    Console.WriteLine($"[DagNode {cell.Index}] Waiting for dependency cell {c.Index} value.");
                     return _nodes[c.Index].DeferredComputedNodeValue.Value;
                 }));
-
-                Console.WriteLine($"[DagNode {cell.Index}] All dependency values received: {string.Join(", ", inputValues)}");
-
                 var result = function(inputValues);
-
-                //Console.WriteLine($"[DagNode {cell.Index}] Computation complete. Result: {result}");
                 return result;
             });
             _nodes[cell.Index] = node;
@@ -181,12 +164,10 @@ namespace ReactiveDAG.Core.Engine
                 node.Dependencies.Add(c.Index);
             }
 
-            //var dependencyCells = cells.OfType<Cell<object>>();
             var dependencyCells = cells.OfType<BaseCell>();
             node.ConnectDependencies(dependencyCells, node.ComputeNodeValueAsync);
             return cell;
         }
-
 
         /// <summary>
         /// Checks if there is a cyclic dependency between two nodes in the DAG.
@@ -236,9 +217,7 @@ namespace ReactiveDAG.Core.Engine
                 var node = _nodes[cell.Index];
                 node.DeferredComputedNodeValue = new Lazy<Task<object>>(() => Task.FromResult<object>(value), LazyThreadSafetyMode.ExecutionAndPublication);
                 node.NotifyUpdatedNode();
-                Console.WriteLine($"Updating input for cell {cell.Index} to value: {value}");
                 await UpdateAndRefresh(cell.Index, UpdateMode.Update);
-
             }
         }
 
@@ -252,7 +231,6 @@ namespace ReactiveDAG.Core.Engine
             var visited = new HashSet<int>();
             var stack = new Stack<int>();
             stack.Push(startIndex);
-
             await _lock.WaitAsync();
 
             try
@@ -278,6 +256,13 @@ namespace ReactiveDAG.Core.Engine
             }
         }
     }
+
+    /// <summary>
+    /// Enum representing the update modes for the DAG engine.
+    /// </summary>
+    public enum UpdateMode
+    {
+        Update,
+        RefreshDependencies
+    }
 }
-
-

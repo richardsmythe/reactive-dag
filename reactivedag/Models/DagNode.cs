@@ -31,23 +31,25 @@ public class DagNode : DagNodeBase
 
     public override async Task<object> ComputeNodeValueAsync()
     {
-        await _computeLock.WaitAsync(); 
-
+        object result;
+        await _computeLock.WaitAsync();
         try
         {
-            var result = await _computeNodeValue(); 
+            result = await _computeNodeValue();
 
             if (Cell is Cell<object> reactiveCell)
             {
                 reactiveCell.Value = result;
             }
-            NotifyUpdatedNode();
-            return result;
         }
         finally
         {
             _computeLock.Release();
         }
+
+        _ = Task.Run(() => NotifyUpdatedNode()); // need this so that the notification can happen asynchronously
+        return result;
     }
+
 
 }

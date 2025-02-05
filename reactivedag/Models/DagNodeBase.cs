@@ -26,8 +26,7 @@ namespace ReactiveDAG.Core.Models
             foreach (var dependency in dependencyCells)
             {
                 var subscription = dependency.Subscribe(async value =>
-                {
-                    Console.WriteLine($"Connecting dependency: Node {dependency.Index} to Node {this.Cell.Index}");
+                {                   
                     await ComputeNodeValueAsync();
                 });
                 Subscriptions.Add(subscription);
