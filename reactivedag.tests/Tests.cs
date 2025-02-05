@@ -383,7 +383,47 @@ namespace ReactiveDAG.tests
             await Task.WhenAll(tasks);
         }
 
-   
+ 
+        [Fact]
+        public async Task Test_StreamResults_Yield_Values()
+        {
+            var builder = Builder.Create()
+                                 .AddInput(2, out var input)
+                                 .AddFunction(inputs => (int)inputs[0] * 2, out var result)
+                                 .Build();
 
+            using var cts = new CancellationTokenSource();
+            var resultStream = builder.StreamResults(result, cts.Token);
+            var streamedResults = new List<int>();
+
+            var streamingTask = Task.Run(async () =>
+            {
+                try
+                {
+                    await foreach (var r in resultStream.WithCancellation(cts.Token))
+                    {
+                        streamedResults.Add(r);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                   
+                }
+            });
+
+            for (int i = 1; i <= 5; i++)
+            {
+                await builder.UpdateInput(input, i);
+                await Task.Delay(1);            }
+
+            cts.Cancel();
+            await streamingTask; 
+
+            // Assert
+            var expectedResults = new List<int> {2, 4, 6, 8, 10 };
+            Assert.Equal(expectedResults, streamedResults);
+        }
     }
+
+
 }

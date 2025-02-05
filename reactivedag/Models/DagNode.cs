@@ -4,7 +4,7 @@ public class DagNode : DagNodeBase
 {
     private readonly Func<Task<object>> _computeNodeValue;
     private readonly SemaphoreSlim _computeLock = new SemaphoreSlim(1, 1);
-
+    private object _lastComputedValueCache;
 
     public event Action NodeUpdated;
 
@@ -28,27 +28,34 @@ public class DagNode : DagNodeBase
         NodeUpdated?.Invoke();
     }
 
-
+        
     public override async Task<object> ComputeNodeValueAsync()
     {
-        object result;
         await _computeLock.WaitAsync();
         try
         {
-            result = await _computeNodeValue();
+
+            var newValue = await _computeNodeValue();
+
+            if (_lastComputedValueCache != null && _lastComputedValueCache.Equals(newValue))
+            {
+                return _lastComputedValueCache;
+            }
+
+            _lastComputedValueCache = newValue;
 
             if (Cell is Cell<object> reactiveCell)
             {
-                reactiveCell.Value = result;
+                reactiveCell.Value = newValue;
             }
+
+            _ = Task.Run(() => NotifyUpdatedNode());
+            return newValue;
         }
         finally
         {
             _computeLock.Release();
         }
-
-        _ = Task.Run(() => NotifyUpdatedNode()); // need this so that the notification can happen asynchronously
-        return result;
     }
 
 
