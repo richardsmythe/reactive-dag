@@ -15,11 +15,7 @@ The **ReactiveDAG** project provides a flexible and scalable framework for manag
    - Ensuring thread-safety for concurrency control.
 
 2. **Builder**:  
-   A fluent API to simplify the creation of DAGs. It allows developers to:
-   - Add input cells with initial values.
-   - Define function cells that compute values based on dependencies.
-   - Update inputs and trigger recalculations.
-   - Build the final `DagEngine` for execution.
+   This is a fluent API to simplify the creation of DAGs. It allows developers to easily create chained functions and inputs.
 
 3. **Cell<T>**:  
    Represents a node in the DAG with reactive properties:
