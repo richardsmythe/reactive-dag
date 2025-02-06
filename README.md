@@ -97,5 +97,43 @@ await builder.UpdateInput(cell3, 6);
 Console.WriteLine($"Updated Result: {await builder.GetResult<double>(result)}");
 </code></pre>
 
+## Example 3:
+Use of StreamResults() demonstrating real-time streaming of computed values while handling updates, cancellation, and graceful shutdown in an asynchronous workflow.
+<pre><code>
+        var builder = Builder.Create()
+                             .AddInput(1, out var inputCell)
+                             .AddFunction(inputs => (int)inputs[0] * 2, out var result)
+                             .Build();
+
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromSeconds(2));
+
+        var resultStream = builder.StreamResults(result, cts.Token);
+
+        var streamingTask = Task.Run(async () =>
+        {
+            try
+            {
+                await foreach (var r in resultStream.WithCancellation(cts.Token))
+                {
+                    Console.WriteLine($"Streamed Result: {r}");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Stream cancelled.");
+            }
+        }, cts.Token);
+
+        // Simulate some task that changes inputCell's value
+        // The delay is added to see individual results
+        for (int i = 0; i <= 100; i++)
+        {
+            await builder.UpdateInput(inputCell, i);
+            await Task.Delay(5);
+        }            
+        await streamingTask;
+</code></pre>
+
 ## Nuget
 ReactiveDag is available as a <a href="https://www.nuget.org/packages/ReactiveDAG">Nuget package.</a>
