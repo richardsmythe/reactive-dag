@@ -9,28 +9,38 @@ class Program
     static async Task Main(string[] args)
     {
         var builder = Builder.Create()
-                             .AddInput(2, out var input)
+                             .AddInput(1, out var inputCell)
                              .AddFunction(inputs => (int)inputs[0] * 2, out var result)
                              .Build();
 
         using var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromSeconds(2));
+
         var resultStream = builder.StreamResults(result, cts.Token);
 
         var streamingTask = Task.Run(async () =>
         {
-            await foreach (var r in resultStream)
+            try
             {
-                Console.WriteLine($"Streamed Result: {r}");
+                await foreach (var r in resultStream.WithCancellation(cts.Token))
+                {
+                    Console.WriteLine($"Streamed Result: {r}");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Stream cancelled.");
             }
         }, cts.Token);
 
-        for (int i = 1; i <= 10; i++)
+        // Simulate some task that changes inputCell's value
+        // The delay is added to see individual results
+        for (int i = 0; i <= 100; i++)
         {
-            await builder.UpdateInput(input, i);
-            await Task.Delay(1); // allow delay to show intermediate results
+            await builder.UpdateInput(inputCell, i);
+            await Task.Delay(5);
         }
-
+            
         await streamingTask;
-        cts.Cancel();
     }
 }

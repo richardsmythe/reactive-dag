@@ -217,7 +217,7 @@ namespace ReactiveDAG.Core.Engine
                 var node = _nodes[cell.Index];
                 node.DeferredComputedNodeValue = new Lazy<Task<object>>(() => Task.FromResult<object>(value), LazyThreadSafetyMode.ExecutionAndPublication);
                 node.NotifyUpdatedNode();
-                await UpdateAndRefresh(cell.Index, UpdateMode.Update);
+                await UpdateAndRefresh(cell.Index);
             }
         }
 
@@ -226,7 +226,7 @@ namespace ReactiveDAG.Core.Engine
         /// </summary>
         /// <param name="startIndex">The starting node index for the update.</param>
         /// <param name="mode">The update mode (update or refresh dependencies).</param>
-        private async Task UpdateAndRefresh(int startIndex, UpdateMode mode)
+        private async Task UpdateAndRefresh(int startIndex)
         {
             var visited = new HashSet<int>();
             var stack = new Stack<int>();
@@ -257,12 +257,12 @@ namespace ReactiveDAG.Core.Engine
         }
     }
 
-    /// <summary>
-    /// Enum representing the update modes for the DAG engine.
-    /// </summary>
-    public enum UpdateMode
-    {
-        Update,
-        RefreshDependencies
-    }
+    ///// <summary>
+    ///// Enum representing the update modes for the DAG engine.
+    ///// </summary>
+    //public enum UpdateMode
+    //{
+    //    Update,
+    //    RefreshDependencies
+    //}
 }
