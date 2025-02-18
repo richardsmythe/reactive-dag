@@ -315,19 +315,19 @@ namespace ReactiveDAG.tests
             {
                 var heights = (List<double>)inputs[0];
                 var weights = (List<double>)inputs[1];
-                return Helper.CalculateCovariance(heights, weights);
+                return Helpers.CalculateCovariance(heights, weights);
             });
             var covHeightAgeCell = dag.AddFunction(new BaseCell[] { heightCell, ageCell }, async inputs =>
             {
                 var heights = (List<double>)inputs[0];
                 var ages = (List<double>)inputs[1];
-                return Helper.CalculateCovariance(heights, ages);
+                return Helpers.CalculateCovariance(heights, ages);
             });
             var covWeightAgeCell = dag.AddFunction(new BaseCell[] { weightCell, ageCell }, async inputs =>
             {
                 var weights = (List<double>)inputs[0];
                 var ages = (List<double>)inputs[1];
-                return Helper.CalculateCovariance(weights, ages);
+                return Helpers.CalculateCovariance(weights, ages);
             });
 
             var initialCovHeightWeight = await dag.GetResult<double>(covHeightWeightCell);
@@ -365,17 +365,17 @@ namespace ReactiveDAG.tests
                 var portfolioValueCell = dag.AddInput(scenario.portfolioValue);
                 var confidenceLevelCell = dag.AddInput(confidenceLevel);
                 var volatilityCell = dag.AddFunction(new BaseCell[] { historicalReturnsCell },
-                    async inputs => Helper.CalculateVolatility((List<double>)inputs[0]));
+                    async inputs => Helpers.CalculateVolatility((List<double>)inputs[0]));
                 var zScoreCell = dag.AddFunction(new BaseCell[] { confidenceLevelCell, historicalReturnsCell },
-                    async inputs => Helper.GetZScoreForConfidenceLevel((double)inputs[0], (List<double>)inputs[1]));
+                    async inputs => Helpers.GetZScoreForConfidenceLevel((double)inputs[0], (List<double>)inputs[1]));
                 var valueAtRiskCell = dag.AddFunction(new BaseCell[] { portfolioValueCell, volatilityCell, zScoreCell },
                     async inputs => (double)inputs[0] * (double)inputs[1] * (double)inputs[2]);
                 tasks.Add(Task.Run(async () =>
                 {
                     var result = await dag.GetResult<double>(valueAtRiskCell);
 
-                    var volatility = Helper.CalculateVolatility(scenario.historicalReturns);
-                    var zScore = Helper.GetZScoreForConfidenceLevel(confidenceLevel, scenario.historicalReturns);
+                    var volatility = Helpers.CalculateVolatility(scenario.historicalReturns);
+                    var zScore = Helpers.GetZScoreForConfidenceLevel(confidenceLevel, scenario.historicalReturns);
                     var expectedValueAtRisk = scenario.portfolioValue * volatility * zScore;
 
                     Assert.Equal(expectedValueAtRisk, result, 2);
@@ -433,40 +433,41 @@ namespace ReactiveDAG.tests
             var apiService = new ApiService(httpClient);
             var userId = "user123";
 
-            try
-            {
-                var builder = Builder.Create()
-                    .AddInput(userId, out var userIdInput)
-                    .AddFunction(
-                        async inputs =>
-                        {
-                            if (inputs.Length == 0) throw new ArgumentException("FetchDataAsync - No inputs received.");
-                            var userIdString = inputs[0] as string;
-                            if (userIdString == null) throw new InvalidCastException("FetchDataAsync - Expected string input.");
-                            var userDetails = await apiService.FetchDataAsync(userIdString);
-                            return userDetails;
-                        },
-                        out var userDetailsCell)
+            var builder = Builder.Create()
+                .AddInput(userId, out var userIdInput)
+                .AddFunction(
+                    async inputs =>
+                    {
+                        if (inputs.Length == 0) throw new ArgumentException("FetchDataAsync - No inputs received.");
+                        var userIdString = inputs[0] as string;
+                        if (userIdString == null) throw new InvalidCastException("FetchDataAsync - Expected string input.");
+                        var userDetails = await apiService.FetchDataAsync(userIdString);
+                        return userDetails;
+                    },
+                    out var userDetailsCell)
 
-                    .AddFunction(
-                        async inputs =>
-                        {
-                            if (inputs.Length == 0) throw new ArgumentException("GetUserPostsAsync - No inputs received.");
-                            if (!(inputs[0] is UserDetails userDetails)) throw new InvalidCastException("GetUserPostsAsync - Expected UserDetails input.");
+                .AddFunction(
+                    async inputs =>
+                    {
+                        if (inputs.Length == 0) throw new ArgumentException("GetUserPostsAsync - No inputs received.");
+                        if (!(inputs[0] is UserDetails userDetails)) throw new InvalidCastException("GetUserPostsAsync - Expected UserDetails input.");
 
-                            return await apiService.GetUserPostsAsync(userDetails.UserId);
-                        },
-                        out var userPostsCell)
+                        return await apiService.GetUserPostsAsync(userDetails.UserId!);
+                    },
+                    out var userPostsCell)
 
-
-                   .AddFunction(
+               .AddFunction(
                     async inputs =>
                     {
                         if (inputs.Length == 0)
                             throw new ArgumentException("ProcessUserPostsConcurrently - No inputs received.");
-                        if (!(inputs[0] is UserPosts userPosts))throw new InvalidCastException("ProcessUserPostsConcurrently - Expected UserPosts input.");
-                        var processedPosts = await ProcessUserPosts(userPosts);
-
+                        if (!(inputs[0] is UserPosts userPosts)) throw new InvalidCastException("ProcessUserPostsConcurrently - Expected UserPosts input.");
+                        var processedPosts = await Helpers.ProcessUserPosts(userPosts);
+                        Console.WriteLine("Processed Posts (Uppercased Titles):");
+                        foreach (var post in processedPosts)
+                        {
+                            Console.WriteLine($"- {post.Title}");
+                        }
                         return processedPosts;
                     },
                     out var processedPostsCell)
@@ -476,8 +477,8 @@ namespace ReactiveDAG.tests
                     {
                         if (inputs.Length == 0) throw new ArgumentException("FetchAdditionalDataAsync - No inputs received.");
                         if (!(inputs[0] is List<Post> processedPosts)) throw new InvalidCastException("FetchAdditionalDataAsync - Expected List<Post> input.");
-                        
-                        return await FetchAdditionalDataAsync(processedPosts);
+
+                        return await Helpers.FetchAdditionalDataAsync(processedPosts);
                     },
                     out var additionalDataCell)
 
@@ -492,58 +493,21 @@ namespace ReactiveDAG.tests
                                 throw new InvalidCastException("AggregateResults - One or more inputs have incorrect types.");
                             }
 
-                            var result = AggregateResults(userDetails, userPosts, processedPosts, additionalData);
+                            var result = Helpers.AggregateResults(userDetails, userPosts, processedPosts, additionalData);
                             return result;
                         },
-                        out var finalResultCell)
+                        out var finalResultCell
+                    )
                     .Build();
 
-                var finalResult = await builder.GetResult<FinalResult>(finalResultCell);
-                Assert.NotNull(finalResult);
-                Assert.Equal("user123", finalResult.UserId);
-                Assert.True(finalResult.PostCount > 0);
-                Assert.True(finalResult.AdditionalDataProcessed);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Test_API_Orchestration ERROR: {ex}");
-                throw;
-            }
-        }
-
-        private async Task<List<Post>> ProcessUserPosts(UserPosts userPosts)
-        {
-            var result = await Task.Run(() =>
-            {
-                var posts = userPosts.Posts
-                    .Select(p => new Post { Title = p.Title.ToUpper(), Content = p.Content })
-                    .ToList();
-                return posts;
-            });
-
-            return result;
+            var finalResult = await builder.GetResult<FinalResult>(finalResultCell);
+            Assert.NotNull(finalResult);
+            Assert.Equal("user123", finalResult.UserId);
+            Assert.True(finalResult.PostCount > 0);
+            Assert.True(finalResult.AdditionalDataProcessed);
         }
 
 
-
-        private async Task<AdditionalData> FetchAdditionalDataAsync(List<Post> processedPosts)
-        {
-            return await Task.Run(() =>
-            {
-                return new AdditionalData { Processed = true, PostCount = processedPosts.Count };
-            });
-        }
-
-
-        private FinalResult AggregateResults(UserDetails userDetails, UserPosts userPosts, List<Post> processedPosts, AdditionalData additionalData)
-        {
-            return new FinalResult
-            {
-                UserId = userDetails.UserId,
-                PostCount = processedPosts.Count,
-                AdditionalDataProcessed = additionalData.Processed
-            };
-        }
 
 
     }

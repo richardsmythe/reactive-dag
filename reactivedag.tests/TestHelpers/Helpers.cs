@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace ReactiveDAG.tests.TestHelpers
 {
-    public static class Helper
+    public static class Helpers
     {
         public static double CalculateCovariance(List<double> x, List<double> y)
         {
@@ -32,6 +32,36 @@ namespace ReactiveDAG.tests.TestHelpers
             double standardDeviation = Math.Sqrt(sumOfSquares / dataSet.Count);
             double zScore = (confidenceLevel - mean) / standardDeviation;
             return zScore;
+        }
+
+        public static async Task<List<Post>> ProcessUserPosts(UserPosts userPosts)
+        {
+            var result = await Task.Run(() =>
+            {
+                var posts = userPosts.Posts
+                    .Select(p => new Post { Title = p.Title.ToUpper(), Content = p.Content })
+                    .ToList();
+                return posts;
+            });
+
+            return result;
+        }
+
+        public static async Task<AdditionalData> FetchAdditionalDataAsync(List<Post> processedPosts)
+        {
+            return await Task.Run(() =>
+            {
+                return new AdditionalData { Processed = true, PostCount = processedPosts.Count };
+            });
+        }
+        public static FinalResult AggregateResults(UserDetails userDetails, UserPosts userPosts, List<Post> processedPosts, AdditionalData additionalData)
+        {
+            return new FinalResult
+            {
+                UserId = userDetails.UserId,
+                PostCount = processedPosts.Count,
+                AdditionalDataProcessed = additionalData.Processed
+            };
         }
     }
 }
