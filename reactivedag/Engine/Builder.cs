@@ -61,9 +61,11 @@ namespace ReactiveDAG.Core.Engine
         /// <param name="function">The function to be executed, taking an array of objects as input.</param>
         /// <param name="resultCell">The output cell containing the function's result.</param>
         /// <returns>The current <see cref="Builder"/> instance for method chaining.</returns>
-        public Builder AddFunction<TResult>(Func<object[], TResult> function, out Cell<TResult> resultCell)
+        public Builder AddFunction<TResult>(Func<object[], Task<TResult>> function, out Cell<TResult> resultCell)
         {
             resultCell = _dagEngine.AddFunction(_cells.ToArray(), function);
+            _cells.Clear();
+            _cells.Add(resultCell);
             return this;
         }
 
@@ -73,9 +75,28 @@ namespace ReactiveDAG.Core.Engine
         /// <typeparam name="TResult">The return type of the function.</typeparam>
         /// <param name="function">The function to be executed, taking an array of objects as input.</param>
         /// <returns>The current <see cref="Builder"/> instance for method chaining.</returns>
-        public Builder AddFunction<TResult>(Func<object[], TResult> function)
+        public Builder AddFunction<TResult>(Func<object[], Task<TResult>> function)
         {
-            _dagEngine.AddFunction(_cells.ToArray(), function);
+            var cell = _dagEngine.AddFunction(_cells.ToArray(), function);
+            _cells.Clear();
+            _cells.Add(cell);
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a function node to the DAG that computes a result based on an explicit set of dependency cells.
+        /// </summary>
+        /// <typeparam name="TResult">The return type of the function.</typeparam>
+        /// <param name="dependencies">The explicit dependency cells for this function node.</param>
+        /// <param name="function">The function to be executed, taking an array of objects as input.</param>
+        /// <param name="resultCell">The output cell containing the function's result.</param>
+        /// <returns>The current <see cref="Builder"/> instance for method chaining.</returns>
+        public Builder AddFunction<TResult>(BaseCell[] dependencies, Func<object[], Task<TResult>> function, out Cell<TResult> resultCell)
+        {
+            resultCell = _dagEngine.AddFunction(dependencies, function);
+            // Optionally, clear _cells if you want to use only the new cell for subsequent nodes.
+            _cells.Clear();
+            _cells.Add(resultCell);
             return this;
         }
 

@@ -45,8 +45,14 @@ namespace ReactiveDAG.Core.Engine
                 throw new InvalidOperationException("Node not found.");
             }
             var result = await node.DeferredComputedNodeValue.Value;
+           
+            if (result is Task<T> taskResult)
+            {
+                return await taskResult;
+            }
             return (T)result;
         }
+
 
         /// <summary>
         /// Streams the result of a specific cell asynchronously.
@@ -143,7 +149,7 @@ namespace ReactiveDAG.Core.Engine
         /// <param name="function">The function to compute the result based on input cells.</param>
         /// <returns>The created function cell.</returns>
         /// <exception cref="InvalidOperationException">Thrown if a dependency is not found or a cyclic dependency is detected.</exception>
-        public Cell<TResult> AddFunction<TResult>(BaseCell[] cells, Func<object[], TResult> function)
+        public Cell<TResult> AddFunction<TResult>(BaseCell[] cells, Func<object[], Task<TResult>> asyncFunction)
         {
             var cell = Cell<TResult>.CreateFunctionCell(_nextIndex++);
             var node = new DagNode(cell, async () =>
@@ -152,15 +158,18 @@ namespace ReactiveDAG.Core.Engine
                 {
                     return _nodes[c.Index].DeferredComputedNodeValue.Value;
                 }));
-                var result = function(inputValues);
+                // Await the asynchronous function:
+                var result = await asyncFunction(inputValues);
                 return result;
             });
             _nodes[cell.Index] = node;
 
             foreach (var c in cells)
             {
-                if (!_nodes.ContainsKey(c.Index)) throw new InvalidOperationException($"Dependency cell with index {c.Index} not found.");
-                if (IsCyclic(cell.Index, c.Index)) throw new InvalidOperationException("Cyclic dependency detected.");
+                if (!_nodes.ContainsKey(c.Index))
+                    throw new InvalidOperationException($"Dependency cell with index {c.Index} not found.");
+                if (IsCyclic(cell.Index, c.Index))
+                    throw new InvalidOperationException("Cyclic dependency detected.");
                 node.Dependencies.Add(c.Index);
             }
 
@@ -256,13 +265,4 @@ namespace ReactiveDAG.Core.Engine
             }
         }
     }
-
-    ///// <summary>
-    ///// Enum representing the update modes for the DAG engine.
-    ///// </summary>
-    //public enum UpdateMode
-    //{
-    //    Update,
-    //    RefreshDependencies
-    //}
 }

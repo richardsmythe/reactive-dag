@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics.Metrics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ReactiveDAG.Core.Engine;
@@ -9,15 +11,14 @@ class Program
     static async Task Main(string[] args)
     {
         var builder = Builder.Create()
-                             .AddInput(1, out var inputCell)
-                             .AddFunction(inputs => (int)inputs[0] * 2, out var result)
-                             .Build();
+            .AddInput(1, out var inputCell)
+            .AddFunction(async inputs => (int)inputs[0] * 2, out var result)
+            .Build();
 
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromSeconds(2));
 
         var resultStream = builder.StreamResults(result, cts.Token);
-
         var streamingTask = Task.Run(async () =>
         {
             try
@@ -40,7 +41,9 @@ class Program
             await builder.UpdateInput(inputCell, i);
             await Task.Delay(5);
         }
-            
+
         await streamingTask;
+
     }
+   
 }
