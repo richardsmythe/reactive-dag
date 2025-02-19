@@ -10,7 +10,7 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        var builder = Builder.Create()
+        var builder = DagPipelineBuilder.Create()
             .AddInput(1, out var inputCell)
             .AddFunction(async inputs => (int)inputs[0] * 2, out var result)
             .Build();

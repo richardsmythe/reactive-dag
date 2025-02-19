@@ -387,14 +387,14 @@ namespace ReactiveDAG.tests
         [Fact]
         public async Task Test_StreamResults_Yield_Values()
         {
-            var builder = Builder.Create()
+            var dag = DagPipelineBuilder.Create()
                                  .AddInput(0, out var input)
                                  .AddFunction(async inputs => (int)inputs[0] * 2, out var result)
                                  .Build();
 
             using var cts = new CancellationTokenSource();
             var streamedResults = new List<int>();
-            var resultStream = builder.StreamResults(result, cts.Token);
+            var resultStream = dag.StreamResults(result, cts.Token);
             int? lastValue = null;
             var streamingTask = Task.Run(async () =>
             {
@@ -415,7 +415,7 @@ namespace ReactiveDAG.tests
             await Task.Delay(10);
             for (int i = 1; i <= 5; i++)
             {
-                await builder.UpdateInput(input, i);
+                await dag.UpdateInput(input, i);
                 await Task.Delay(10);
             }
 
@@ -426,14 +426,14 @@ namespace ReactiveDAG.tests
         }
 
         [Fact]
-        public async Task Test_API_Orchestration()
+        public async Task Test_API_Orchestration_Parallelized_WithMonitoring()
         {
             var fakeHandler = new FakeHttpMessageHandler();
             var httpClient = new HttpClient(fakeHandler);
             var apiService = new ApiService(httpClient);
             var userId = "user123";
 
-            var builder = Builder.Create()
+            var dag = DagPipelineBuilder.Create()
                 .AddInput(userId, out var userIdInput)
                 .AddFunction(
                     async inputs =>
@@ -445,22 +445,18 @@ namespace ReactiveDAG.tests
                         return userDetails;
                     },
                     out var userDetailsCell)
-
                 .AddFunction(
                     async inputs =>
                     {
                         if (inputs.Length == 0) throw new ArgumentException("GetUserPostsAsync - No inputs received.");
                         if (!(inputs[0] is UserDetails userDetails)) throw new InvalidCastException("GetUserPostsAsync - Expected UserDetails input.");
-
                         return await apiService.GetUserPostsAsync(userDetails.UserId!);
                     },
                     out var userPostsCell)
-
-               .AddFunction(
+                .AddFunction(
                     async inputs =>
                     {
-                        if (inputs.Length == 0)
-                            throw new ArgumentException("ProcessUserPostsConcurrently - No inputs received.");
+                        if (inputs.Length == 0) throw new ArgumentException("ProcessUserPostsConcurrently - No inputs received.");
                         if (!(inputs[0] is UserPosts userPosts)) throw new InvalidCastException("ProcessUserPostsConcurrently - Expected UserPosts input.");
                         var processedPosts = await Helpers.ProcessUserPosts(userPosts);
                         Console.WriteLine("Processed Posts (Uppercased Titles):");
@@ -471,44 +467,63 @@ namespace ReactiveDAG.tests
                         return processedPosts;
                     },
                     out var processedPostsCell)
-
                 .AddFunction(
                     async inputs =>
                     {
                         if (inputs.Length == 0) throw new ArgumentException("FetchAdditionalDataAsync - No inputs received.");
                         if (!(inputs[0] is List<Post> processedPosts)) throw new InvalidCastException("FetchAdditionalDataAsync - Expected List<Post> input.");
-
                         return await Helpers.FetchAdditionalDataAsync(processedPosts);
                     },
                     out var additionalDataCell)
-
-                    .AddFunction(new BaseCell[] { userDetailsCell, userPostsCell, processedPostsCell, additionalDataCell },
-                        async inputs =>
+                .AddFunction(new BaseCell[] { userDetailsCell, userPostsCell, processedPostsCell, additionalDataCell },
+                    async inputs =>
+                    {
+                        if (!(inputs[0] is UserDetails userDetails) ||
+                            !(inputs[1] is UserPosts userPosts) ||
+                            !(inputs[2] is List<Post> processedPosts) ||
+                            !(inputs[3] is AdditionalData additionalData))
                         {
-                            if (!(inputs[0] is UserDetails userDetails) ||
-                                !(inputs[1] is UserPosts userPosts) ||
-                                !(inputs[2] is List<Post> processedPosts) ||
-                                !(inputs[3] is AdditionalData additionalData))
-                            {
-                                throw new InvalidCastException("AggregateResults - One or more inputs have incorrect types.");
-                            }
+                            throw new InvalidCastException("AggregateResults - One or more inputs have incorrect types.");
+                        }
+                        var result = Helpers.AggregateResults(userDetails, userPosts, processedPosts, additionalData);
+                        return result;
+                    },
+                    out var finalResultCell)
+                .Build();
 
-                            var result = Helpers.AggregateResults(userDetails, userPosts, processedPosts, additionalData);
-                            return result;
-                        },
-                        out var finalResultCell
-                    )
-                    .Build();
 
-            var finalResult = await builder.GetResult<FinalResult>(finalResultCell);
-            Assert.NotNull(finalResult);
-            Assert.Equal("user123", finalResult.UserId);
-            Assert.True(finalResult.PostCount > 0);
-            Assert.True(finalResult.AdditionalDataProcessed);
+            var tasks = new List<Task>
+            {
+                dag.GetResult<UserDetails>(userDetailsCell),
+                dag.GetResult<UserPosts>(userPostsCell),
+                dag.GetResult<List<Post>>(processedPostsCell),
+                dag.GetResult<AdditionalData>(additionalDataCell)
+            };
+            await Task.WhenAll(tasks);
+
+            var userDetailsNode = dag.GetNode(userDetailsCell);
+            var userPostsNode = dag.GetNode(userPostsCell);
+            var processedPostsNode = dag.GetNode(processedPostsCell);
+            var additionalDataNode = dag.GetNode(additionalDataCell);
+            var finalResultNode = dag.GetNode(finalResultCell);
+
+            if (userDetailsNode.Status == NodeStatus.Completed &&
+                userPostsNode.Status == NodeStatus.Completed &&
+                processedPostsNode.Status == NodeStatus.Completed &&
+                additionalDataNode.Status == NodeStatus.Completed)
+            {
+                var finalResult = await dag.GetResult<FinalResult>(finalResultCell);
+                Console.WriteLine($"FinalResult: UserId={finalResult.UserId}, PostCount={finalResult.PostCount}, AdditionalDataProcessed={finalResult.AdditionalDataProcessed}");
+
+                Assert.NotNull(finalResult);
+                Assert.Equal("user123", finalResult.UserId);
+                Assert.True(finalResult.PostCount > 0);
+                Assert.True(finalResult.AdditionalDataProcessed);
+            }
+            else
+            {
+                Assert.Fail("Not all nodes have completed yet.");
+            }
         }
-
-
-
-
     }
 }

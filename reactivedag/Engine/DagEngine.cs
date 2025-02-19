@@ -16,6 +16,18 @@ namespace ReactiveDAG.Core.Engine
         private int _nextIndex = 0;
 
         /// <summary>
+        /// Returns the node
+        /// </summary>
+        public DagNode GetNode(BaseCell cell)
+        {
+            if (!_nodes.TryGetValue(cell.Index, out var node))
+            {
+                throw new InvalidOperationException("Node not found.");
+            }
+            return node;
+        }
+
+        /// <summary>
         /// Gets the indices of nodes that depend on the specified node index.
         /// </summary>
         private IEnumerable<int> GetDependentNodes(int index)
@@ -40,16 +52,9 @@ namespace ReactiveDAG.Core.Engine
         /// <exception cref="InvalidOperationException">Thrown if the node for the given cell is not found.</exception>
         public async Task<T> GetResult<T>(BaseCell cell)
         {
-            if (!_nodes.TryGetValue(cell.Index, out var node))
-            {
-                throw new InvalidOperationException("Node not found.");
-            }
-            var result = await node.DeferredComputedNodeValue.Value;
-           
-            if (result is Task<T> taskResult)
-            {
-                return await taskResult;
-            }
+            if (!_nodes.TryGetValue(cell.Index, out var node)) throw new InvalidOperationException("Node not found.");
+            var result = await node.DeferredComputedNodeValue.Value;           
+            if (result is Task<T> taskResult) return await taskResult;            
             return (T)result;
         }
 
@@ -64,11 +69,8 @@ namespace ReactiveDAG.Core.Engine
         /// <returns>An asynchronous stream of results for the cell.</returns>
         public async IAsyncEnumerable<T> StreamResults<T>(Cell<T> cell, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            if (!_nodes.TryGetValue(cell.Index, out var node))
-            {
-                throw new InvalidOperationException("Node not found.");
-            }
-
+            if (!_nodes.TryGetValue(cell.Index, out var node)) throw new InvalidOperationException("Node not found.");
+            
             var channel = Channel.CreateUnbounded<T>();
             async void Handler()
             {

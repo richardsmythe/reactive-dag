@@ -1,7 +1,4 @@
-﻿using System;
-using System.Runtime.Intrinsics.Arm;
-
-namespace ReactiveDAG.Core.Models
+﻿namespace ReactiveDAG.Core.Models
 {
     public abstract class DagNodeBase
     {
@@ -9,6 +6,7 @@ namespace ReactiveDAG.Core.Models
         public HashSet<int> Dependencies { get; set; } = new();
         public Lazy<Task<object>> DeferredComputedNodeValue { get; set; }
         public List<IDisposable> Subscriptions { get; set; }
+        public NodeStatus Status { get; protected set; } = NodeStatus.Idle;
 
         protected DagNodeBase(
             BaseCell cell,
@@ -20,6 +18,8 @@ namespace ReactiveDAG.Core.Models
         }
 
         public abstract Task<object> ComputeNodeValueAsync();
+
+        protected void UpdateStatus(NodeStatus newStatus) => Status = newStatus;
 
         public void ConnectDependencies(IEnumerable<BaseCell> dependencyCells, Func<Task<object>> computeNodeValue)
         {
@@ -43,6 +43,7 @@ namespace ReactiveDAG.Core.Models
             }
             Subscriptions.Clear();
         }
+
 
     }
 }

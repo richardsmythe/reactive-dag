@@ -1,11 +1,14 @@
 ﻿using ReactiveDAG.Core.Models;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 
 public class DagNode : DagNodeBase
 {
     private readonly Func<Task<object>> _computeNodeValue;
     private readonly SemaphoreSlim _computeLock = new SemaphoreSlim(1, 1);
     private object _lastComputedValueCache;
-
+    private readonly BehaviorSubject<NodeStatus> _statusSubject = new(NodeStatus.Idle);
+    public IObservable<NodeStatus> StatusStream => _statusSubject.AsObservable();
     public event Action NodeUpdated;
 
     public DagNode(BaseCell cell, Func<Task<object>> computeValue)
@@ -34,7 +37,7 @@ public class DagNode : DagNodeBase
         await _computeLock.WaitAsync();
         try
         {
-
+            UpdateStatus(NodeStatus.Processing);
             var newValue = await _computeNodeValue();
 
             if (_lastComputedValueCache != null && _lastComputedValueCache.Equals(newValue))
@@ -50,7 +53,14 @@ public class DagNode : DagNodeBase
             }
 
             _ = Task.Run(() => NotifyUpdatedNode());
+            
+            UpdateStatus(NodeStatus.Completed);
             return newValue;
+        }
+        catch (Exception)
+        {
+            UpdateStatus(NodeStatus.Failed);
+            throw;
         }
         finally
         {
