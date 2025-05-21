@@ -164,7 +164,6 @@ namespace ReactiveDAG.Core.Engine
                 {
                     return _nodes[c.Index].DeferredComputedNodeValue.Value;
                 }));
-                // Await the asynchronous function:
                 var result = await asyncFunction(inputValues);
                 return result;
             });
@@ -174,8 +173,11 @@ namespace ReactiveDAG.Core.Engine
             {
                 if (!_nodes.ContainsKey(c.Index))
                     throw new InvalidOperationException($"Dependency cell with index {c.Index} not found.");
-                if (IsCyclic(cell.Index, c.Index))
+
+              
+                if (IsCyclic(c.Index, cell.Index))
                     throw new InvalidOperationException("Cyclic dependency detected.");
+
                 node.Dependencies.Add(c.Index);
             }
 

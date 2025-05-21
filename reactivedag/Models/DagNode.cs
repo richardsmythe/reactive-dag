@@ -10,7 +10,7 @@ public class DagNode : DagNodeBase
     private readonly BehaviorSubject<NodeStatus> _statusSubject = new(NodeStatus.Idle);
     //public IObservable<NodeStatus> StatusStream => _statusSubject.AsObservable();
     public event Action NodeUpdated;
-    public NodeMetadata Metadata { get; set; } = new();
+
 
     public DagNode(BaseCell cell, Func<Task<object>> computeValue)
         : base(cell, computeValue)

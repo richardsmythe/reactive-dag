@@ -8,7 +8,7 @@
   </PropertyGroup>
 	<PropertyGroup>
 		<PackageId>ReactiveDAG</PackageId>
-		<Version>1.0.3</Version>
+		<Version>1.0.5</Version>
 		<Authors>Richard Smythe</Authors>
 		<Description>A tool for managing dynamic computations in a directed acyclic graph, allowing automatic updates of node values based on input changes.</Description>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
