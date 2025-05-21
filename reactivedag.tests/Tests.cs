@@ -531,8 +531,7 @@ namespace ReactiveDAG.tests
             var dag = new DagEngine();
             var a = dag.AddInput(1);
             var b = dag.AddInput(2);
-            var sum = dag.AddFunction(new BaseCell[] { a, b }, async inputs => 
-                await Task.Run(() => (int)inputs[0] + (int)inputs[1]));
+            var sum = dag.AddFunction(new BaseCell[] { a, b }, async inputs => await Task.Run(() => (int)inputs[0] + (int)inputs[1]));
             string json = dag.ToJson();
             Assert.Contains("\"Index\":", json);
             Assert.Contains("\"Type\":", json);
@@ -541,5 +540,6 @@ namespace ReactiveDAG.tests
             Assert.Contains("1", json);
             Assert.Contains("2", json);
         }       
+
     }
 }

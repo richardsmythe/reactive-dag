@@ -33,10 +33,11 @@ namespace ReactiveDAG.Core.Engine
         /// </summary>
         private IEnumerable<int> GetDependentNodes(int index) => _nodes.Where(n => n.Value.Dependencies.Contains(index)).Select(n => n.Key);
 
-             /// <summary>
+        /// <summary>
         /// Returns all nodes in the DAG.
         /// </summary>
         public IEnumerable<DagNode> GetAllNodes() => _nodes.Values;
+
         /// <summary>
         /// Gets the total number of nodes in the DAG.
         /// </summary>
@@ -61,7 +62,6 @@ namespace ReactiveDAG.Core.Engine
             if (result is Task<T> taskResult) return await taskResult;            
             return (T)result;
         }
-
 
         /// <summary>
         /// Streams the result of a specific cell asynchronously.
@@ -273,6 +273,7 @@ namespace ReactiveDAG.Core.Engine
 
         /// <summary>
         /// Serializes the current DAG structure (nodes, values, dependencies, types) to a JSON string.
+        /// NB: Custom functions cannot be serialized and de-serialized so for now we just serialize structure.
         /// </summary>
         public string ToJson()
         {
