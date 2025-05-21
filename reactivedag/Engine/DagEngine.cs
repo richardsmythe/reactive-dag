@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
+using Newtonsoft.Json;
 
 namespace ReactiveDAG.Core.Engine
 {
@@ -9,7 +10,7 @@ namespace ReactiveDAG.Core.Engine
     /// The main engine that manages the execution of the Directed Acyclic Graph (DAG).
     /// Handles the creation, updates, and removal of nodes and manages the dependencies between cells.
     /// </summary>
-    public class DagEngine
+    public partial class DagEngine
     {
         private readonly ConcurrentDictionary<int, DagNode> _nodes = new ConcurrentDictionary<int, DagNode>();
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
@@ -30,9 +31,12 @@ namespace ReactiveDAG.Core.Engine
         /// <summary>
         /// Gets the indices of nodes that depend on the specified node index.
         /// </summary>
-        private IEnumerable<int> GetDependentNodes(int index)
-            => _nodes.Where(n => n.Value.Dependencies.Contains(index)).Select(n => n.Key);
+        private IEnumerable<int> GetDependentNodes(int index) => _nodes.Where(n => n.Value.Dependencies.Contains(index)).Select(n => n.Key);
 
+             /// <summary>
+        /// Returns all nodes in the DAG.
+        /// </summary>
+        public IEnumerable<DagNode> GetAllNodes() => _nodes.Values;
         /// <summary>
         /// Gets the total number of nodes in the DAG.
         /// </summary>
@@ -266,5 +270,20 @@ namespace ReactiveDAG.Core.Engine
                 _lock.Release();
             }
         }
+
+        /// <summary>
+        /// Serializes the current DAG structure (nodes, values, dependencies, types) to a JSON string.
+        /// </summary>
+        public string ToJson()
+        {
+            var nodeDtos = _nodes.Values.Select(node => new
+            {
+                Index = node.Cell.Index,
+                Type = node.Cell.CellType.ToString(),
+                Value = node.Cell is Cell<object> objCell ? objCell.Value : node.Cell is Cell<int> intCell ? (object)intCell.Value : node.Cell is Cell<double> doubleCell ? (object)doubleCell.Value : node.Cell is Cell<string> strCell ? (object)strCell.Value : null,
+                Dependencies = node.Dependencies.ToArray()
+            }).ToList();
+            return JsonConvert.SerializeObject(nodeDtos, Formatting.Indented);
+        }        
     }
 }

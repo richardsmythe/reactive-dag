@@ -114,12 +114,33 @@ namespace ReactiveDAG.Core.Engine
         }
 
         /// <summary>
+        /// Removes a node from the DAG and updates the builder's cell list.
+        /// </summary>
+        /// <param name="cell">The cell to remove.</param>
+        /// <returns>The current <see cref="DagPipelineBuilder"/> instance for method chaining.</returns>
+        public DagPipelineBuilder RemoveNode(BaseCell cell)
+        {
+            _dagEngine.RemoveNode(cell);
+            _cells.Remove(cell);
+            return this;
+        }
+
+        /// <summary>
         /// Builds and returns the constructed <see cref="DagEngine"/>.
         /// </summary>
         /// <returns>The constructed <see cref="DagEngine"/> instance.</returns>
         public DagEngine Build()
         {
             return _dagEngine;
+        }
+
+        /// <summary>
+        /// Converts the DAG to a JSON representation.
+        /// </summary>
+        /// <returns>A JSON string representing the DAG.</returns>
+        public string ToJson()
+        {
+            return _dagEngine.ToJson();
         }
     }
 }
