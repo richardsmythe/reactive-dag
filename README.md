@@ -14,7 +14,7 @@ The **ReactiveDAG** project provides a flexible and scalable framework for manag
    - Propagating updates and refreshing dependencies.
    - Ensuring thread-safety for concurrency control.
 
-2. **Builder**:  
+2. **DagPipelineBuilder**:  
    This is a fluent API to simplify the creation of DAGs. It allows developers to easily create chained functions and inputs.
 
 3. **Cell<T>**:  
@@ -41,15 +41,31 @@ The **ReactiveDAG** project provides a flexible and scalable framework for manag
 4. The system recalculates and propagates changes to all dependent cells efficiently.
 
 ## Example 1:
+An example of how to use the fluent api to build a simple DAG
+<pre><code>
+   var DagPipelineBuilder = DagPipelineDagPipelineBuilder.Create();
+   DagPipelineBuilder.AddInput(6, out var cell1)
+        .AddInput(4, out var cell2)
+        .AddFunction(
+            async inputs => (int)inputs[0] + (int)inputs[1],
+            out Cell<int> functionCell,
+            cell1, cell2
+        )
+        .Build();   
+   var result = await DagPipelineBuilder.GetResult<int>(functionCell);
+   Assert.Equal(10, result);
+</code></pre>
+
+## Example 2:
 Model and compute a set of dependent operations (inputs, functions, and their results) in a structured way.
 The code below highlights how the the dag can run simulations where the inputs are updated dynamically, (in this case every 100 iterations) which automatically propagate through the DAG.
 <pre><code>
-  var builder = Builder.Create();
+  var DagPipelineBuilder = DagPipelineBuilder.Create();
 
-  builder.AddInput(GenerateRandomAssetPrice(), out var assetPrice)
+  DagPipelineBuilder.AddInput(GenerateRandomAssetPrice(), out var assetPrice)
          .AddInput(GenerateRandomInterestRate(), out var interestRate);
 
-  builder.AddFunction(inputs =>
+  DagPipelineBuilder.AddFunction(inputs =>
   {
       var price = Convert.ToDouble(inputs[0]);
       var rate = Convert.ToDouble(inputs[1]);
@@ -60,12 +76,12 @@ The code below highlights how the the dag can run simulations where the inputs a
   var results = new List<double>();
   for (int i = 0; i < 1000; i++)
   {
-      var dagEngine = builder.Build();
+      var dagEngine = DagPipelineBuilder.Build();
 
       if (i % 100 == 0)
       {
-          builder.UpdateInput(assetPrice, GenerateRandomAssetPrice());
-          builder.UpdateInput(interestRate, GenerateRandomInterestRate());
+          DagPipelineBuilder.UpdateInput(assetPrice, GenerateRandomAssetPrice());
+          DagPipelineBuilder.UpdateInput(interestRate, GenerateRandomInterestRate());
       }
 
       var result = await dagEngine.GetResult<double>(simulationResult);
@@ -76,10 +92,10 @@ The code below highlights how the the dag can run simulations where the inputs a
   Console.WriteLine($"Average simulated future price: {averagePrice}");
 </code></pre>
 
-## Example 2:
+## Example 3:
 Create a simple DAG that sums 3 inputs. When a cell is updated the results are recomputed dynamically.
 <pre><code>
-var builder = Builder.Create()
+var DagPipelineBuilder = DagPipelineBuilder.Create()
     .AddInput(6.2, out var cell1)
     .AddInput(4, out var cell2)
     .AddInput(2, out var cell3)
@@ -91,16 +107,16 @@ var builder = Builder.Create()
     .Build();
 
 Console.WriteLine($"Created cell1: {cell1.Value}, cell2: {cell2.Value}, and cell3: {cell3.Value}");
-Console.WriteLine($"Sum of cells: {await builder.GetResult<double>(result)}");
-await builder.UpdateInput(cell2, 5);
-await builder.UpdateInput(cell3, 6);
-Console.WriteLine($"Updated Result: {await builder.GetResult<double>(result)}");
+Console.WriteLine($"Sum of cells: {await DagPipelineBuilder.GetResult<double>(result)}");
+await DagPipelineBuilder.UpdateInput(cell2, 5);
+await DagPipelineBuilder.UpdateInput(cell3, 6);
+Console.WriteLine($"Updated Result: {await DagPipelineBuilder.GetResult<double>(result)}");
 </code></pre>
 
-## Example 3:
+## Example 4:
 Use of StreamResults() demonstrating real-time streaming of computed values while handling updates, cancellation, and graceful shutdown in an asynchronous workflow.
 <pre><code>
-var builder = Builder.Create()
+var DagPipelineBuilder = DagPipelineBuilder.Create()
                     .AddInput(1, out var inputCell)
                     .AddFunction(inputs => (int)inputs[0] * 2, out var result)
                     .Build();
@@ -108,7 +124,7 @@ var builder = Builder.Create()
 using var cts = new CancellationTokenSource();
 cts.CancelAfter(TimeSpan.FromSeconds(2));
 
-var resultStream = builder.StreamResults(result, cts.Token);
+var resultStream = DagPipelineBuilder.StreamResults(result, cts.Token);
 
 var streamingTask = Task.Run(async () =>
 {
@@ -129,7 +145,7 @@ var streamingTask = Task.Run(async () =>
 // The delay is added to see individual results
 for (int i = 0; i <= 100; i++)
 {
-   await builder.UpdateInput(inputCell, i);
+   await DagPipelineBuilder.UpdateInput(inputCell, i);
    await Task.Delay(5);
 }            
 await streamingTask;
@@ -138,113 +154,48 @@ await streamingTask;
 ## Example 4:
 This example shows a simple Markov Chain using ReactiveDag and how each computation depends on previous results, how derived values (like the most likely weather and expected sunny days) are automatically updated when inputs change, and how the dependency structure is managed.
 <pre><code>
-        double[,] transitionMatrix = new double[,]
-        {
-            // To:            Sunny   Cloudy  Rainy
-            /* From Sunny */ { 0.8,    0.15,   0.05 },
-            /* From Cloudy*/ { 0.2,    0.6,    0.2  },
-            /* From Rainy */ { 0.1,    0.3,    0.6  }
-        };
+  // Markov chain: Sunny, Cloudy, Rainy
+  double[,] matrix = { { 0.8, 0.15, 0.05 }, { 0.2, 0.6, 0.2 }, { 0.1, 0.3, 0.6 } };
+  double[] initial = { 1.0, 0.0, 0.0 };
+  string[] weather = { "Sunny", "Cloudy", "Rainy" };
 
-        // Start 100% chance of Sunny on day 0
-        double[] initialState = new double[] { 1.0, 0.0, 0.0 };
-        int days = 5;
+  var builder = DagPipelineBuilder.Create()
+      .AddInput(matrix, out var matrixCell)
+      .AddInput(initial, out var state0);
 
-        var dag = new DagEngine();
-        var matrixCell = dag.AddInput(transitionMatrix);
-        var stateCells = new List<BaseCell>();
-        var firstStateCell = dag.AddInput(initialState);
-        stateCells.Add(firstStateCell);
+  // Next state function
+  double[] Next(double[] s, double[,] m) =>
+      Enumerable.Range(0, s.Length)
+          .Select(j => Enumerable.Range(0, s.Length).Sum(i => s[i] * m[i, j]))
+          .ToArray();
 
-        // Compute the weather probabilities for the next day based on today's state and transition matrix
-        Func<double[], double[,], double[]> stepFunc = (state, matrix) =>
-        {
-            int n = state.Length;
-            double[] next = new double[n];
-            for (int j = 0; j < n; j++)
-            {
-                next[j] = 0;
-                for (int i = 0; i < n; i++)
-                    next[j] += state[i] * matrix[i, j];
-            }
-            return next;
-        };
+  // Day 1 and 2 states
+  builder.AddFunction(async inp => Next((double[])inp[0], (double[,])inp[1]), out var state1, state0, matrixCell)
+         .AddFunction(async inp => Next((double[])inp[0], (double[,])inp[1]), out var state2, state1, matrixCell);
 
-        // Add function cells for each day's state
-        for (int day = 0; day < days; day++)
-        {
-            var prevStateCell = stateCells.Last();
-            var nextStateCell = dag.AddFunction(
-                new BaseCell[] { prevStateCell, matrixCell },
-                async inputs => stepFunc((double[])inputs[0], (double[,])inputs[1])
-            );
-            stateCells.Add(nextStateCell);
-        }
+  // Most likely weather for each day
+  builder.AddFunction(async inp => weather[Array.IndexOf(((double[])inp[0]), ((double[])inp[0]).Max())], out var day1Weather, state1)
+         .AddFunction(async inp => weather[Array.IndexOf(((double[])inp[0]), ((double[])inp[0]).Max())], out var day2Weather, state2);
 
-        string[] weatherTypes = { "Sunny", "Cloudy", "Rainy" };
+  // Probability of rain for each day
+  builder.AddFunction(async inp => ((double[])inp[0])[2], out var rain1, state1)
+         .AddFunction(async inp => ((double[])inp[0])[2], out var rain2, state2)
+  .Build();
 
-        // Add function cells to compute the most probable weather for each day
-        var mostProbableWeatherCells = new List<BaseCell>();
-        for (int i = 1; i < stateCells.Count; i++)
-        {
-            var stateCell = stateCells[i];
-            var mostProbableCell = dag.AddFunction(
-                new BaseCell[] { stateCell },
-                async inputs =>
-                {
-                    var probs = (double[])inputs[0];
-                    int maxIdx = Array.IndexOf(probs, probs.Max());
-                    return weatherTypes[maxIdx];
-                }
-            );
-            mostProbableWeatherCells.Add(mostProbableCell);
-        }
+  async Task Print()
+  {
+      var s1 = await builder.GetResult<double[]>(state1);
+      var s2 = await builder.GetResult<double[]>(state2);
+      Console.WriteLine($"Day 1: {string.Join(", ", s1.Select((p, i) => $"{weather[i]}: {p:P2}"))}, Most likely: {await builder.GetResult<string>(day1Weather)}, Rain: {await builder.GetResult<double>(rain1):P2}");
+      Console.WriteLine($"Day 2: {string.Join(", ", s2.Select((p, i) => $"{weather[i]}: {p:P2}"))}, Most likely: {await builder.GetResult<string>(day2Weather)}, Rain: {await builder.GetResult<double>(rain2):P2}");
+  }
 
-        // Add a function cell to compute the expected number of sunny days
-        var expectedSunnyDaysCell = dag.AddFunction(
-            stateCells.Skip(1).ToArray(),
-            async inputs => inputs.Select(arr => ((double[])arr)[0]).Sum()
-        );
+  Console.WriteLine("--- Initial ---");
+  await Print();
 
-        // Print results for each day
-        Console.WriteLine($"Weather probabilities and most likely weather for each day:");
-        for (int day = 1; day <= days; day++)
-        {
-            var probs = await dag.GetResult<double[]>(stateCells[day]);
-            var mostLikely = await dag.GetResult<string>(mostProbableWeatherCells[day - 1]);
-            Console.Write($"Day {day}: ");
-            for (int i = 0; i < probs.Length; i++)
-                Console.Write($"{weatherTypes[i]}: {probs[i]:P2}  ");
-            Console.WriteLine($"| Most likely: {mostLikely}");
-        }
-
-        var expectedSunny = await dag.GetResult<double>(expectedSunnyDaysCell);
-        Console.WriteLine($"\nExpected number of sunny days over {days} days: {expectedSunny:F2}");
-
-        // Demonstrate dependency update: change initial state to 100% Rainy
-        Console.WriteLine("\n--- Now changing initial state to 100% Rainy ---");
-        await dag.UpdateInput(firstStateCell, new double[] { 0.0, 0.0, 1.0 });
-        for (int day = 1; day <= days; day++)
-        {
-            var probs = await dag.GetResult<double[]>(stateCells[day]);
-            var mostLikely = await dag.GetResult<string>(mostProbableWeatherCells[day - 1]);
-            Console.Write($"Day {day}: ");
-            for (int i = 0; i < probs.Length; i++)
-                Console.Write($"{weatherTypes[i]}: {probs[i]:P2}  ");
-            Console.WriteLine($"| Most likely: {mostLikely}");
-        }
-        expectedSunny = await dag.GetResult<double>(expectedSunnyDaysCell);
-        Console.WriteLine($"\nExpected number of sunny days over {days} days: {expectedSunny:F2}");
-
-        // Print a simple dependency list
-        Console.WriteLine("\nDAG structure (cell dependencies):");
-        for (int i = 1; i < stateCells.Count; i++)
-        {
-            Console.WriteLine($"StateCell[{i}] depends on StateCell[{i - 1}] and matrixCell");
-        }
-        Console.WriteLine("Each mostProbableWeatherCell depends on its corresponding StateCell.");
-        Console.WriteLine("expectedSunnyDaysCell depends on all StateCells (except day 0).");
-    }
+  Console.WriteLine("\n--- Now set initial state to 100% Rainy ---");
+  builder.UpdateInput(state0, new double[] { 0, 0, 1 });
+  await Print();
 </code></pre>
 
 ## Nuget
