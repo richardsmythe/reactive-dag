@@ -20,12 +20,17 @@ namespace ReactiveDAG.tests
         [Fact]
         public async Task Test_Summing_Cells()
         {
-            var dag = new DagEngine();
-            var inputCells = new BaseCell[] { dag.AddInput(6), dag.AddInput(4) };
-            var functionCell = dag.AddFunction(inputCells,
-                async inputs => (int)inputs[0] + (int)inputs[1]
-            );
-            var result = await dag.GetResult<int>(functionCell);
+            var builder = DagPipelineBuilder.Create();
+            builder.AddInput(6, out var cell1)
+                   .AddInput(4, out var cell2)
+                   .AddFunction(
+                       async inputs => (int)inputs[0] + (int)inputs[1],
+                       out Cell<int> functionCell,
+                       cell1, cell2
+                   )
+                   .Build();
+
+            var result = await builder.GetResult<int>(functionCell);
             Assert.Equal(10, result);
         }
 
@@ -539,7 +544,28 @@ namespace ReactiveDAG.tests
             Assert.Contains("\"Value\":", json);
             Assert.Contains("1", json);
             Assert.Contains("2", json);
-        }       
-
+        }
+              
+        [Fact]
+        public async Task Test_AddFunction_With_Mixed_Cell_Types()
+        {
+            var builder = DagPipelineBuilder.Create();
+            builder.AddInput(42, out var intCell);
+            builder.AddInput(3.14, out var doubleCell);
+            builder.AddInput("hello", out var stringCell);
+            builder.AddFunction(
+                async inputs =>
+                {
+                    int i = (int)inputs[0];
+                    double d = (double)inputs[1];
+                    string s = (string)inputs[2];
+                    return $"{i}-{d}-{s}";
+                },
+                out Cell<string> resultCell,
+                intCell, doubleCell, stringCell
+            ).Build();
+            var result = await builder.GetResult<string>(resultCell);
+            Assert.Equal("42-3.14-hello", result);
+        }
     }
 }
