@@ -7,7 +7,6 @@ public class DagNode<T> : DagNodeBase<T>
     private readonly Func<Task<T>> _computeNodeValue;
     private readonly SemaphoreSlim _computeLock = new SemaphoreSlim(1, 1);
     private T _lastComputedValueCache;
-    private readonly BehaviorSubject<NodeStatus> _statusSubject = new(NodeStatus.Idle);
     public event Action NodeUpdated;
 
     public DagNode(Cell<T> cell, Func<Task<T>> computeValue)

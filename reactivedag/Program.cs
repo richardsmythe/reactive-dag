@@ -27,8 +27,8 @@ class Program
         var state0Tuple = builder.CombineCells(state0, matrixCell);
         Console.WriteLine("DAG after state0Tuple:");
         Console.WriteLine(builder.ToJson());
-        builder.AddFunction<object[], double[]>(new[] { state0Tuple }, async inp => {
-            var tuple = (object[])inp[0];
+        builder.AddFunction(new[] { state0Tuple }, async inp => {
+            var tuple = inp[0];
             return Next((double[])tuple[0], (double[,])tuple[1]);
         }, out var state1);
         Console.WriteLine("DAG after state1:");
@@ -36,20 +36,20 @@ class Program
         var state1Tuple = builder.CombineCells(state1, matrixCell);
         Console.WriteLine("DAG after state1Tuple:");
         Console.WriteLine(builder.ToJson());
-        builder.AddFunction<object[], double[]>(new[] { state1Tuple }, async inp => {
-            var tuple = (object[])inp[0];
+        builder.AddFunction(new[] { state1Tuple }, async inp => {
+            var tuple = inp[0];
             return Next((double[])tuple[0], (double[,])tuple[1]);
         }, out var state2);
         Console.WriteLine("DAG after state2:");
         Console.WriteLine(builder.ToJson());
 
         // Most likely weather for each day
-        builder.AddFunction<double[], string>(new[] { state1 as Cell<double[]> }, async inp => weather[Array.IndexOf(inp[0], inp[0].Max())], out var day1Weather)
-               .AddFunction<double[], string>(new[] { state2 as Cell<double[]> }, async inp => weather[Array.IndexOf(inp[0], inp[0].Max())], out var day2Weather);
+        builder.AddFunction(new[] { state1  }, async inp => weather[Array.IndexOf(inp[0], inp[0].Max())], out var day1Weather)
+               .AddFunction(new[] { state2 }, async inp => weather[Array.IndexOf(inp[0], inp[0].Max())], out var day2Weather);
 
         // Probability of rain for each day
-        builder.AddFunction<double[], double>(new[] { state1 as Cell<double[]> }, async inp => inp[0][2], out var rain1)
-               .AddFunction<double[], double>(new[] { state2 as Cell<double[]> }, async inp => inp[0][2], out var rain2)
+        builder.AddFunction(new[] { state1 as Cell<double[]> }, async inp => inp[0][2], out var rain1)
+               .AddFunction(new[] { state2 as Cell<double[]> }, async inp => inp[0][2], out var rain2)
         .Build();
 
         async Task Print()
