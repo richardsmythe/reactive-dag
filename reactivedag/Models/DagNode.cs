@@ -2,23 +2,21 @@
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 
-public class DagNode : DagNodeBase
+public class DagNode<T> : DagNodeBase<T>
 {
-    private readonly Func<Task<object>> _computeNodeValue;
+    private readonly Func<Task<T>> _computeNodeValue;
     private readonly SemaphoreSlim _computeLock = new SemaphoreSlim(1, 1);
-    private object _lastComputedValueCache;
+    private T _lastComputedValueCache;
     private readonly BehaviorSubject<NodeStatus> _statusSubject = new(NodeStatus.Idle);
-    //public IObservable<NodeStatus> StatusStream => _statusSubject.AsObservable();
     public event Action NodeUpdated;
 
-
-    public DagNode(BaseCell cell, Func<Task<object>> computeValue)
+    public DagNode(Cell<T> cell, Func<Task<T>> computeValue)
         : base(cell, computeValue)
     {
         _computeNodeValue = computeValue;
     }
 
-    public T GetCellValue<T>()
+    public T GetCellValue()
     {
         if (Cell is Cell<T> typedCell)
         {
@@ -32,8 +30,7 @@ public class DagNode : DagNodeBase
         NodeUpdated?.Invoke();
     }
 
-        
-    public override async Task<object> ComputeNodeValueAsync()
+    public override async Task<T> ComputeNodeValueAsync()
     {
         await _computeLock.WaitAsync();
         try
@@ -48,7 +45,7 @@ public class DagNode : DagNodeBase
 
             _lastComputedValueCache = newValue;
 
-            if (Cell is Cell<object> reactiveCell)
+            if (Cell is Cell<T> reactiveCell)
             {
                 reactiveCell.Value = newValue;
             }
@@ -68,6 +65,4 @@ public class DagNode : DagNodeBase
             _computeLock.Release();
         }
     }
-
-
 }

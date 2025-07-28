@@ -57,13 +57,15 @@ namespace ReactiveDAG.Core.Engine
         /// <summary>
         /// Adds a function node to the DAG that computes a result based on its input cells.
         /// </summary>
+        /// <typeparam name="TInputs">The type of the input values.</typeparam>
         /// <typeparam name="TResult">The return type of the function.</typeparam>
-        /// <param name="function">The function to be executed, taking an array of objects as input.</param>
+        /// <param name="function">The function to be executed, taking an array of TInputs as input.</param>
         /// <param name="resultCell">The output cell containing the function's result.</param>
         /// <returns>The current <see cref="Builder"/> instance for method chaining.</returns>
-        public DagPipelineBuilder AddFunction<TResult>(Func<object[], Task<TResult>> function, out Cell<TResult> resultCell)
+        public DagPipelineBuilder AddFunction<TInputs, TResult>(Func<TInputs[], Task<TResult>> function, out Cell<TResult> resultCell)
         {
-            resultCell = _dagEngine.AddFunction(_cells.ToArray(), function);
+            var inputCells = _cells.Cast<Cell<TInputs>>().ToArray();
+            resultCell = _dagEngine.AddFunction<TInputs, TResult>(inputCells, function);
             _cells.Clear();
             _cells.Add(resultCell);
             return this;
@@ -72,12 +74,14 @@ namespace ReactiveDAG.Core.Engine
         /// <summary>
         /// Adds a function node to the DAG that computes a result based on its input cells.
         /// </summary>
+        /// <typeparam name="TInputs">The type of the input values.</typeparam>
         /// <typeparam name="TResult">The return type of the function.</typeparam>
-        /// <param name="function">The function to be executed, taking an array of objects as input.</param>
+        /// <param name="function">The function to be executed, taking an array of TInputs as input.</param>
         /// <returns>The current <see cref="Builder"/> instance for method chaining.</returns>
-        public DagPipelineBuilder AddFunction<TResult>(Func<object[], Task<TResult>> function)
+        public DagPipelineBuilder AddFunction<TInputs, TResult>(Func<TInputs[], Task<TResult>> function)
         {
-            var cell = _dagEngine.AddFunction(_cells.ToArray(), function);
+            var inputCells = _cells.Cast<Cell<TInputs>>().ToArray();
+            var cell = _dagEngine.AddFunction<TInputs, TResult>(inputCells, function);
             _cells.Clear();
             _cells.Add(cell);
             return this;
@@ -86,15 +90,15 @@ namespace ReactiveDAG.Core.Engine
         /// <summary>
         /// Adds a function node to the DAG that computes a result based on an explicit set of dependency cells.
         /// </summary>
+        /// <typeparam name="TInputs">The type of the input values.</typeparam>
         /// <typeparam name="TResult">The return type of the function.</typeparam>
         /// <param name="dependencies">The explicit dependency cells for this function node.</param>
-        /// <param name="function">The function to be executed, taking an array of objects as input.</param>
+        /// <param name="function">The function to be executed, taking an array of TInputs as input.</param>
         /// <param name="resultCell">The output cell containing the function's result.</param>
         /// <returns>The current <see cref="Builder"/> instance for method chaining.</returns>
-        public DagPipelineBuilder AddFunction<TResult>(BaseCell[] dependencies, Func<object[], Task<TResult>> function, out Cell<TResult> resultCell)
+        public DagPipelineBuilder AddFunction<TInputs, TResult>(Cell<TInputs>[] dependencies, Func<TInputs[], Task<TResult>> function, out Cell<TResult> resultCell)
         {
-            resultCell = _dagEngine.AddFunction(dependencies, function);
-            // Optionally, clear _cells if you want to use only the new cell for subsequent nodes.
+            resultCell = _dagEngine.AddFunction<TInputs, TResult>(dependencies, function);
             _cells.Clear();
             _cells.Add(resultCell);
             return this;
@@ -103,15 +107,32 @@ namespace ReactiveDAG.Core.Engine
         /// <summary>
         /// Adds a function node to the DAG that computes a result based on a variable number of dependency cells.
         /// </summary>
+        /// <typeparam name="TInputs">The type of the input values.</typeparam>
         /// <typeparam name="TResult">The return type of the function.</typeparam>
-        /// <param name="function">The function to be executed, taking an array of objects as input.</param>
+        /// <param name="function">The function to be executed, taking an array of TInputs as input.</param>
         /// <param name="resultCell">The output cell containing the function's result.</param>
         /// <param name="dependencies">The dependency cells for this function node.</param>
         /// <returns>The current <see cref="DagPipelineBuilder"/> instance for method chaining.</returns>
-        public DagPipelineBuilder AddFunction<TResult>(
-            Func<object[], Task<TResult>> function,
+        public DagPipelineBuilder AddFunction<TInputs, TResult>(
+            Func<TInputs[], Task<TResult>> function,
             out Cell<TResult> resultCell,
-            params BaseCell[] dependencies)
+            params Cell<TInputs>[] dependencies)
+        {
+            resultCell = _dagEngine.AddFunction<TInputs, TResult>(dependencies, function);
+            _cells.Clear();
+            _cells.Add(resultCell);
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a function node to the DAG that computes a result based on an explicit set of dependency cells of any type.
+        /// </summary>
+        /// <typeparam name="TResult">The return type of the function.</typeparam>
+        /// <param name="dependencies">The explicit dependency cells for this function node.</param>
+        /// <param name="function">The function to be executed, taking an array of objects as input.</param>
+        /// <param name="resultCell">The output cell containing the function's result.</param>
+        /// <returns>The current <see cref="Builder"/> instance for method chaining.</returns>
+        public DagPipelineBuilder AddFunction<TResult>(BaseCell[] dependencies, Func<object[], Task<TResult>> function, out Cell<TResult> resultCell)
         {
             resultCell = _dagEngine.AddFunction(dependencies, function);
             _cells.Clear();
@@ -124,7 +145,7 @@ namespace ReactiveDAG.Core.Engine
         /// </summary>
         /// <typeparam name="T">The type of the input value.</typeparam>
         /// <param name="cell">The input cell to update.</param>
-        /// <param name="newValue">The new value to set.</param>
+        /// <param name="newValue">The new value to set.</typeparam>
         /// <returns>The current <see cref="Builder"/> instance for method chaining.</returns>
         public DagPipelineBuilder UpdateInput<T>(Cell<T> cell, T newValue)
         {
@@ -139,7 +160,9 @@ namespace ReactiveDAG.Core.Engine
         /// <returns>The current <see cref="DagPipelineBuilder"/> instance for method chaining.</returns>
         public DagPipelineBuilder RemoveNode(BaseCell cell)
         {
-            _dagEngine.RemoveNode(cell);
+            // Try to cast to Cell<object> for removal
+            if (cell is Cell<object> objectCell)
+                _dagEngine.RemoveNode(objectCell);
             _cells.Remove(cell);
             return this;
         }
@@ -170,7 +193,10 @@ namespace ReactiveDAG.Core.Engine
         /// <returns>The result of the cell.</returns>
         public async Task<T> GetResult<T>(BaseCell cell)
         {
-            return await _dagEngine.GetResult<T>(cell);
+            // Try to cast to Cell<T> for result
+            if (cell is Cell<T> typedCell)
+                return await _dagEngine.GetResult<T>(typedCell);
+            throw new InvalidCastException($"Cell is not of type Cell<{typeof(T).Name}>");
         }
     }
 }

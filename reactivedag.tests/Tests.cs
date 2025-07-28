@@ -40,7 +40,7 @@ namespace ReactiveDAG.tests
             var dag = new DagEngine();
             var inputCell1 = dag.AddInput(4);
             var inputCell2 = dag.AddInput(4);
-            var functionCell = dag.AddFunction(new BaseCell[] { inputCell1, inputCell2 },
+            var functionCell = dag.AddFunction<int, int>(new[] { inputCell1, inputCell2 },
                 async inputs => (int)inputs[0] * (int)inputs[1]);
             var initialResult = await dag.GetResult<int>(functionCell);
             Assert.Equal(16, initialResult);
@@ -55,15 +55,15 @@ namespace ReactiveDAG.tests
             var dag = new DagEngine();
             var inputCell1 = dag.AddInput(4);
             var inputCell2 = dag.AddInput(4);
-            var functionCell1 = dag.AddFunction(new BaseCell[] { inputCell1 },
+            var functionCell1 = dag.AddFunction<int, int>(new[] { inputCell1 },
                 async inputs => (int)inputs[0] * 2
             );
-            var functionCell2 = dag.AddFunction(new BaseCell[] { functionCell1 },
+            var functionCell2 = dag.AddFunction<int, int>(new[] { functionCell1 },
                 async inputs => (int)inputs[0] + 10
             );
             Action createCycle = () =>
             {
-                dag.AddFunction(new BaseCell[] { functionCell2 },
+                dag.AddFunction<int, int>(new[] { functionCell2 },
                     async inputs => (int)inputs[0] * 2
                 );
             };
@@ -75,13 +75,13 @@ namespace ReactiveDAG.tests
         public async Task Test_Chaining_Functions()
         {
             var dag = new DagEngine();
-            var concatFuncCell = dag.AddFunction(
-                new BaseCell[] { dag.AddInput("R"), dag.AddInput("S") },
-                async inputs => (string)inputs[0] + inputs[1]
+            var concatFuncCell = dag.AddFunction<string, string>(
+                new[] { dag.AddInput("R"), dag.AddInput("S") },
+                async inputs => (string)inputs[0] + (string)inputs[1]
             );
-            var additionFuncCell = dag.AddFunction(
-                new BaseCell[] { dag.AddInput(4.5), dag.AddInput(2) },
-                async inputs => (double)inputs[0] + (int)inputs[1]
+            var additionFuncCell = dag.AddFunction<double, double>(
+                new[] { dag.AddInput(4.5), dag.AddInput(2.0) },
+                async inputs => (double)inputs[0] + (double)inputs[1]
             );
             var concatResult = await dag.GetResult<string>(concatFuncCell);
             var additionResult = await dag.GetResult<double>(additionFuncCell);
@@ -89,22 +89,21 @@ namespace ReactiveDAG.tests
             Assert.Equal(6.5, additionResult);
         }
 
-
         [Fact]
         public async Task Test_Chaining_Multiple_Functions()
         {
             var dag = new DagEngine();
-            var concatFuncCell = dag.AddFunction(
-                new BaseCell[] { dag.AddInput("R"), dag.AddInput("S") },
-                async inputs => (string)inputs[0] + inputs[1]
+            var concatFuncCell = dag.AddFunction<object, object>(
+                new[] { dag.AddInput<object>("R"), dag.AddInput<object>("S") },
+                async inputs => (string)inputs[0] + (string)inputs[1]
             );
-            var sumFuncCell = dag.AddFunction(
-                new BaseCell[] { dag.AddInput(10), dag.AddInput(5) },
+            var sumFuncCell = dag.AddFunction<object, object>(
+                new[] { dag.AddInput<object>(10), dag.AddInput<object>(5) },
                 async inputs => (int)inputs[0] + (int)inputs[1]
             );
-            var combinedFuncCell = dag.AddFunction(
-                new BaseCell[] { concatFuncCell, sumFuncCell },
-                async inputs => (string)inputs[0] + " " + (int)inputs[1]
+            var combinedFuncCell = dag.AddFunction<object, string>(
+                new[] { concatFuncCell, sumFuncCell },
+                async inputs => (string)inputs[0] + " " + inputs[1].ToString()
             );
             var combinedResult = await dag.GetResult<string>(combinedFuncCell);
             Assert.Equal("RS 15", combinedResult);
@@ -120,16 +119,16 @@ namespace ReactiveDAG.tests
             var input3 = dag.AddInput(6);
             var input4 = dag.AddInput(2);
 
-            var multFuncCell = dag.AddFunction(
-                new BaseCell[] { input2, input3 },
+            var multFuncCell = dag.AddFunction<int, int>(
+                new[] { input2, input3 },
                 async inputs => (int)inputs[0] * (int)inputs[1]
             );
-            var addFuncCell = dag.AddFunction(
-                new BaseCell[] { input1, multFuncCell },
+            var addFuncCell = dag.AddFunction<int, int>(
+                new[] { input1, multFuncCell },
                 async inputs => (int)inputs[0] + (int)inputs[1]
             );
-            var finalFuncCell = dag.AddFunction(
-                new BaseCell[] { addFuncCell, input4 },
+            var finalFuncCell = dag.AddFunction<int, int>(
+                new[] { addFuncCell, input4 },
                 async inputs => (int)inputs[0] - (int)inputs[1]
             );
 
@@ -142,8 +141,8 @@ namespace ReactiveDAG.tests
         {
             var dag = new DagEngine();
             var inputCell = dag.AddInput(25);
-            var functionCell = dag.AddFunction(
-                new BaseCell[] { inputCell },
+            var functionCell = dag.AddFunction<int, int>(
+                new[] { inputCell },
                 async inputs => (int)inputs[0] * 2
             );
             var initialResult = await dag.GetResult<int>(functionCell);
@@ -162,9 +161,9 @@ namespace ReactiveDAG.tests
             var input1 = dag.AddInput(1);
             var input2 = dag.AddInput(2);
             var input3 = dag.AddInput(3);
-            var functionCell1 = dag.AddFunction(new BaseCell[] { input1 }, async inputs => (int)inputs[0]);
-            var functionCell2 = dag.AddFunction(new BaseCell[] { input2, functionCell1 }, async inputs => (int)inputs[0] + (int)inputs[1]);
-            var functionCell3 = dag.AddFunction(new BaseCell[] { input3, functionCell2 }, async inputs => (int)inputs[0] * (int)inputs[1]);
+            var functionCell1 = dag.AddFunction<int, int>(new[] { input1 }, async inputs => (int)inputs[0]);
+            var functionCell2 = dag.AddFunction<int, int>(new[] { input2, functionCell1 }, async inputs => (int)inputs[0] + (int)inputs[1]);
+            var functionCell3 = dag.AddFunction<int, int>(new[] { input3, functionCell2 }, async inputs => (int)inputs[0] * (int)inputs[1]);
             Assert.True(functionCell1.Index < functionCell2.Index);
             Assert.True(functionCell2.Index < functionCell3.Index);
         }
@@ -184,21 +183,20 @@ namespace ReactiveDAG.tests
                 dag.AddInput(1.0), dag.AddInput(-9.0)
             };
 
-            var matrixAdditionFunctionCell = dag.AddFunction(new BaseCell[]
+            var matrixAdditionFunctionCell = dag.AddFunction<double, double[]>(new[]
             {
                 matrixA[0], matrixA[1], matrixA[2], matrixA[3],
                 matrixB[0], matrixB[1], matrixB[2], matrixB[3]
             }, async inputs =>
             {
-                double[] A = inputs.Take(4).Select(i => Convert.ToDouble(i)).ToArray();
-                double[] B = inputs.Skip(4).Select(i => Convert.ToDouble(i)).ToArray();
-
+                double[] A = inputs.Take(4).ToArray();
+                double[] B = inputs.Skip(4).ToArray();
                 return new double[]
                 {
-                    A[0] + B[0], // 3.0 + 4.0  = 7.0
-                    A[1] + B[1], // 8.0 + 0.0  = 8.0
-                    A[2] + B[2], // 4.0 + 1.0  = 5.0
-                    A[3] + B[3]  // 6.0 + -9.0 = -3.0
+                    A[0] + B[0],
+                    A[1] + B[1],
+                    A[2] + B[2],
+                    A[3] + B[3]
                 };
             });
             var result = await dag.GetResult<double[]>(matrixAdditionFunctionCell);
@@ -219,12 +217,12 @@ namespace ReactiveDAG.tests
                 dag.AddInput(3.0), dag.AddInput(8.0),
                 dag.AddInput(4.0), dag.AddInput(6.0)
             };
-            var matrixDeterminantFunctionCell = dag.AddFunction(new BaseCell[]
+            var matrixDeterminantFunctionCell = dag.AddFunction<double, double[]>(new[]
             {
                 matrixA[0], matrixA[1], matrixA[2], matrixA[3]
             }, async inputs =>
             {
-                var A = inputs.Take(4).Select(i => Convert.ToDouble(i)).ToArray();
+                var A = inputs.Take(4).ToArray();
                 return new double[]
                 {
                     A[0] * A[3] - A[1] * A[2]
@@ -262,8 +260,8 @@ namespace ReactiveDAG.tests
             var intermediateCells = new List<Cell<int>>();
             for (int i = 0; i < inputCount - 1; i += 2)
             {
-                var cell = dag.AddFunction(
-                    new BaseCell[] { inputCells[i], inputCells[i + 1] },
+                var cell = dag.AddFunction<int, int>(
+                    new[] { inputCells[i], inputCells[i + 1] },
                     async inputs => (int)inputs[0] + (int)inputs[1]
                 );
                 intermediateCells.Add(cell);
@@ -272,15 +270,15 @@ namespace ReactiveDAG.tests
             var finalCells = new List<Cell<int>>();
             for (int i = 0; i < intermediateCells.Count - 1; i += 2)
             {
-                var cell = dag.AddFunction(
-                    new BaseCell[] { intermediateCells[i], intermediateCells[i + 1] },
+                var cell = dag.AddFunction<int, int>(
+                    new[] { intermediateCells[i], intermediateCells[i + 1] },
                     async inputs => (int)inputs[0] * (int)inputs[1]
                 );
                 finalCells.Add(cell);
             }
 
-            var aggregateCell = dag.AddFunction(
-                finalCells.Cast<BaseCell>().ToArray(),
+            var aggregateCell = dag.AddFunction<int, int>(
+                finalCells.ToArray(),
                 async inputs => inputs.Sum(input => (int)input)
             );
             var finalResult = await dag.GetResult<int>(aggregateCell);
@@ -316,22 +314,22 @@ namespace ReactiveDAG.tests
             var heightCell = dag.AddInput(new List<double> { 60, 62, 65, 70, 72 });
             var weightCell = dag.AddInput(new List<double> { 120, 130, 150, 168, 170 });
             var ageCell = dag.AddInput(new List<double> { 25, 30, 35, 40, 45 });
-            var covHeightWeightCell = dag.AddFunction(new BaseCell[] { heightCell, weightCell }, async inputs =>
+            var covHeightWeightCell = dag.AddFunction<List<double>, double>(new[] { heightCell, weightCell }, async inputs =>
             {
-                var heights = (List<double>)inputs[0];
-                var weights = (List<double>)inputs[1];
+                var heights = inputs[0];
+                var weights = inputs[1];
                 return Helpers.CalculateCovariance(heights, weights);
             });
-            var covHeightAgeCell = dag.AddFunction(new BaseCell[] { heightCell, ageCell }, async inputs =>
+            var covHeightAgeCell = dag.AddFunction<List<double>, double>(new[] { heightCell, ageCell }, async inputs =>
             {
-                var heights = (List<double>)inputs[0];
-                var ages = (List<double>)inputs[1];
+                var heights = inputs[0];
+                var ages = inputs[1];
                 return Helpers.CalculateCovariance(heights, ages);
             });
-            var covWeightAgeCell = dag.AddFunction(new BaseCell[] { weightCell, ageCell }, async inputs =>
+            var covWeightAgeCell = dag.AddFunction<List<double>, double>(new[] { weightCell, ageCell }, async inputs =>
             {
-                var weights = (List<double>)inputs[0];
-                var ages = (List<double>)inputs[1];
+                var weights = inputs[0];
+                var ages = inputs[1];
                 return Helpers.CalculateCovariance(weights, ages);
             });
 
@@ -366,15 +364,20 @@ namespace ReactiveDAG.tests
             var tasks = new List<Task>();
             foreach (var scenario in portfolioScenarios)
             {
-                var historicalReturnsCell = dag.AddInput(scenario.historicalReturns);
-                var portfolioValueCell = dag.AddInput(scenario.portfolioValue);
-                var confidenceLevelCell = dag.AddInput(confidenceLevel);
-                var volatilityCell = dag.AddFunction(new BaseCell[] { historicalReturnsCell },
-                    async inputs => Helpers.CalculateVolatility((List<double>)inputs[0]));
-                var zScoreCell = dag.AddFunction(new BaseCell[] { confidenceLevelCell, historicalReturnsCell },
-                    async inputs => Helpers.GetZScoreForConfidenceLevel((double)inputs[0], (List<double>)inputs[1]));
-                var valueAtRiskCell = dag.AddFunction(new BaseCell[] { portfolioValueCell, volatilityCell, zScoreCell },
-                    async inputs => (double)inputs[0] * (double)inputs[1] * (double)inputs[2]);
+                var historicalReturnsCell = dag.AddInput<object>(scenario.historicalReturns);
+                var portfolioValueCell = dag.AddInput<object>(scenario.portfolioValue);
+                var confidenceLevelCell = dag.AddInput<object>(confidenceLevel);
+                var volatilityCell = dag.AddFunction<object, object>(
+                    new Cell<object>[] { historicalReturnsCell },
+                    async inputs => (object)Helpers.CalculateVolatility((List<double>)inputs[0]));
+                var zScoreCell = dag.AddFunction<object, object>(
+                    new Cell<object>[] { confidenceLevelCell, historicalReturnsCell },
+                    async inputs => (object)Helpers.GetZScoreForConfidenceLevel(Convert.ToDouble(inputs[0]), (List<double>)inputs[1])
+                );
+                var valueAtRiskCell = dag.AddFunction<object, double>(
+                    new Cell<object>[] { portfolioValueCell, volatilityCell, zScoreCell },
+                    async inputs => Convert.ToDouble(inputs[0]) * Convert.ToDouble(inputs[1]) * Convert.ToDouble(inputs[2])
+                );
                 tasks.Add(Task.Run(async () =>
                 {
                     var result = await dag.GetResult<double>(valueAtRiskCell);
@@ -394,7 +397,7 @@ namespace ReactiveDAG.tests
         {
             var dag = DagPipelineBuilder.Create()
                                  .AddInput(0, out var input)
-                                 .AddFunction(async inputs => (int)inputs[0] * 2, out var result)
+                                 .AddFunction<int, int>(async inputs => (int)inputs[0] * 2, out var result)
                                  .Build();
 
             using var cts = new CancellationTokenSource();
@@ -407,7 +410,7 @@ namespace ReactiveDAG.tests
                 {
                     await foreach (var r in resultStream.WithCancellation(cts.Token))
                     {
-                        if (lastValue is null || r != lastValue)
+                        if (lastValue is null || r != lastValue.Value)
                         {
                             streamedResults.Add(r);
                         }
@@ -439,71 +442,64 @@ namespace ReactiveDAG.tests
             var userId = "user123";
 
             var dag = DagPipelineBuilder.Create()
-                .AddInput(userId, out var userIdInput)
-                .AddFunction(
+                .AddInput<object>(userId, out var userIdInput)
+                .AddFunction<object, object>(
                     async inputs =>
                     {
-                        if (inputs.Length == 0) throw new ArgumentException("FetchDataAsync - No inputs received.");
                         var userIdString = inputs[0] as string;
-                        if (userIdString == null) throw new InvalidCastException("FetchDataAsync - Expected string input.");
                         var userDetails = await apiService.FetchDataAsync(userIdString);
                         return userDetails;
                     },
-                    out var userDetailsCell)
-                .AddFunction(
+                    out var userDetailsCell,
+                    userIdInput)
+                .AddFunction<object, object>(
                     async inputs =>
                     {
-                        if (inputs.Length == 0) throw new ArgumentException("GetUserPostsAsync - No inputs received.");
-                        if (!(inputs[0] is UserDetails userDetails)) throw new InvalidCastException("GetUserPostsAsync - Expected UserDetails input.");
+                        var userDetails = inputs[0] as UserDetails;
                         return await apiService.GetUserPostsAsync(userDetails.UserId!);
                     },
-                    out var userPostsCell)
-                .AddFunction(
+                    out var userPostsCell,
+                    userDetailsCell)
+                .AddFunction<object, object>(
                     async inputs =>
                     {
-                        if (inputs.Length == 0) throw new ArgumentException("ProcessUserPostsConcurrently - No inputs received.");
-                        if (!(inputs[0] is UserPosts userPosts)) throw new InvalidCastException("ProcessUserPostsConcurrently - Expected UserPosts input.");
+                        var userPosts = inputs[0] as UserPosts;
                         var processedPosts = await Helpers.ProcessUserPosts(userPosts);
-                        Console.WriteLine("Processed Posts (Uppercased Titles):");
-                        foreach (var post in processedPosts)
-                        {
-                            Console.WriteLine($"- {post.Title}");
-                        }
                         return processedPosts;
                     },
-                    out var processedPostsCell)
-                .AddFunction(
+                    out var processedPostsCell,
+                    userPostsCell)
+                .AddFunction<object, object>(
                     async inputs =>
                     {
-                        if (inputs.Length == 0) throw new ArgumentException("FetchAdditionalDataAsync - No inputs received.");
-                        if (!(inputs[0] is List<Post> processedPosts)) throw new InvalidCastException("FetchAdditionalDataAsync - Expected List<Post> input.");
+                        var processedPosts = inputs[0] as List<Post>;
                         return await Helpers.FetchAdditionalDataAsync(processedPosts);
                     },
-                    out var additionalDataCell)
-                .AddFunction(new BaseCell[] { userDetailsCell, userPostsCell, processedPostsCell, additionalDataCell },
+                    out var additionalDataCell,
+                    processedPostsCell)
+                .AddFunction<object, FinalResult>(
                     async inputs =>
                     {
-                        if (!(inputs[0] is UserDetails userDetails) ||
-                            !(inputs[1] is UserPosts userPosts) ||
-                            !(inputs[2] is List<Post> processedPosts) ||
-                            !(inputs[3] is AdditionalData additionalData))
-                        {
-                            throw new InvalidCastException("AggregateResults - One or more inputs have incorrect types.");
-                        }
+                        var userDetails = (UserDetails)inputs[0];
+                        var userPosts = (UserPosts)inputs[1];
+                        var processedPosts = (List<Post>)inputs[2];
+                        var additionalData = (AdditionalData)inputs[3];
                         var result = Helpers.AggregateResults(userDetails, userPosts, processedPosts, additionalData);
                         return result;
                     },
-                    out var finalResultCell)
+                    out var finalResultCell,
+                    userDetailsCell, userPostsCell, processedPostsCell, additionalDataCell)
                 .Build();
 
-            var tasks = new List<Task>
-            {
-                dag.GetResult<UserDetails>(userDetailsCell),
-                dag.GetResult<UserPosts>(userPostsCell),
-                dag.GetResult<List<Post>>(processedPostsCell),
-                dag.GetResult<AdditionalData>(additionalDataCell)
-            };
-            await Task.WhenAll(tasks);
+            // Sequentially request results to avoid reentrancy
+            var userDetails = (UserDetails)await dag.GetResult<object>(userDetailsCell);
+            Assert.NotNull(userDetails);
+            var userPosts = (UserPosts)await dag.GetResult<object>(userPostsCell);
+            Assert.NotNull(userPosts);
+            var processedPosts = (List<Post>)await dag.GetResult<object>(processedPostsCell);
+            Assert.NotNull(processedPosts);
+            var additionalData = (AdditionalData)await dag.GetResult<object>(additionalDataCell);
+            Assert.NotNull(additionalData);
 
             var userDetailsNode = dag.GetNode(userDetailsCell);
             var userPostsNode = dag.GetNode(userPostsCell);
@@ -536,7 +532,7 @@ namespace ReactiveDAG.tests
             var dag = new DagEngine();
             var a = dag.AddInput(1);
             var b = dag.AddInput(2);
-            var sum = dag.AddFunction(new BaseCell[] { a, b }, async inputs => await Task.Run(() => (int)inputs[0] + (int)inputs[1]));
+            var sum = dag.AddFunction<int, int>(new[] { a, b }, async inputs => await Task.Run(() => (int)inputs[0] + (int)inputs[1]));
             string json = dag.ToJson();
             Assert.Contains("\"Index\":", json);
             Assert.Contains("\"Type\":", json);
@@ -550,10 +546,10 @@ namespace ReactiveDAG.tests
         public async Task Test_AddFunction_With_Mixed_Cell_Types()
         {
             var builder = DagPipelineBuilder.Create();
-            builder.AddInput(42, out var intCell);
-            builder.AddInput(3.14, out var doubleCell);
-            builder.AddInput("hello", out var stringCell);
-            builder.AddFunction(
+            builder.AddInput<object>(42, out var intCell);
+            builder.AddInput<object>(3.14, out var doubleCell);
+            builder.AddInput<object>("hello", out var stringCell);
+            builder.AddFunction<object, string>(
                 async inputs =>
                 {
                     int i = (int)inputs[0];
