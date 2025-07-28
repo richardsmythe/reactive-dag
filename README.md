@@ -43,112 +43,90 @@ The **ReactiveDAG** project provides a flexible and scalable framework for manag
 ## Example 1:
 An example of how to use the fluent api to build a simple DAG
 <pre><code>
-   var DagPipelineBuilder = DagPipelineDagPipelineBuilder.Create();
-   DagPipelineBuilder.AddInput(6, out var cell1)
-        .AddInput(4, out var cell2)
-        .AddFunction(
-            async inputs => (int)inputs[0] + (int)inputs[1],
-            out Cell<int> functionCell,
-            cell1, cell2
-        )
-        .Build();   
-   var result = await DagPipelineBuilder.GetResult<int>(functionCell);
-   Assert.Equal(10, result);
+   var builder = DagPipelineBuilder.Create();
+   builder.AddInput(6, out var cell1);
+   builder.AddInput(4, out var cell2);
+   builder.AddFunction(
+      async inputs => (int)inputs[0] + (int)inputs[1],
+      out Cell<int> functionCell,
+      cell1, cell2
+   );
+   builder.Build();
+   var result = await builder.GetResult<int>(functionCell);
+   Console.WriteLine(result); 
 </code></pre>
 
 ## Example 2:
 Model and compute a set of dependent operations (inputs, functions, and their results) in a structured way.
 The code below highlights how the the dag can run simulations where the inputs are updated dynamically, (in this case every 100 iterations) which automatically propagate through the DAG.
 <pre><code>
-  var DagPipelineBuilder = DagPipelineBuilder.Create();
+static async Task Main()
+{
+    var dagPipelineBuilder = DagPipelineBuilder.Create();
 
-  DagPipelineBuilder.AddInput(GenerateRandomAssetPrice(), out var assetPrice)
-         .AddInput(GenerateRandomInterestRate(), out var interestRate);
+    dagPipelineBuilder.AddInput<double>(GenerateRandomAssetPrice(), out var assetPrice)
+           .AddInput<double>(GenerateRandomInterestRate(), out var interestRate);
 
-  DagPipelineBuilder.AddFunction(inputs =>
-  {
-      var price = Convert.ToDouble(inputs[0]);
-      var rate = Convert.ToDouble(inputs[1]);
-      var futurePrice = price * Math.Exp(rate);
-      return futurePrice;
-  }, out var simulationResult);
+    dagPipelineBuilder.AddFunction<double, double>(async inputs =>
+    {
+        var price = inputs[0];
+        var rate = inputs[1];
+        var futurePrice = price * Math.Exp(rate);
+        return await Task.FromResult(futurePrice);
+    }, out var simulationResult);
 
-  var results = new List<double>();
-  for (int i = 0; i < 1000; i++)
-  {
-      var dagEngine = DagPipelineBuilder.Build();
+    var results = new List<double>();
+    for (int i = 0; i < 1000; i++)
+    {
+        var dagEngine = dagPipelineBuilder.Build();
 
-      if (i % 100 == 0)
-      {
-          DagPipelineBuilder.UpdateInput(assetPrice, GenerateRandomAssetPrice());
-          DagPipelineBuilder.UpdateInput(interestRate, GenerateRandomInterestRate());
-      }
+        if (i % 100 == 0)
+        {
+            dagPipelineBuilder.UpdateInput(assetPrice, GenerateRandomAssetPrice());
+            dagPipelineBuilder.UpdateInput(interestRate, GenerateRandomInterestRate());
+        }
 
-      var result = await dagEngine.GetResult<double>(simulationResult);
-      results.Add(result);
-  }
+        var result = await dagEngine.GetResult<double>(simulationResult);
+        results.Add(result);
+    }
 
-  var averagePrice = results.Average();
-  Console.WriteLine($"Average simulated future price: {averagePrice}");
+    var averagePrice = results.Average();
+    Console.WriteLine($"Average simulated future price: {averagePrice}");
+}
+
+private static double GenerateRandomAssetPrice()
+{
+    var random = new Random();
+    return random.NextDouble() * 100 + 50;
+}
+
+private static double GenerateRandomInterestRate()
+{
+    var random = new Random();
+    return random.NextDouble() * 0.1; 
+}
 </code></pre>
 
 ## Example 3:
 Create a simple DAG that sums 3 inputs. When a cell is updated the results are recomputed dynamically.
 <pre><code>
-var DagPipelineBuilder = DagPipelineBuilder.Create()
-    .AddInput(6.2, out var cell1)
-    .AddInput(4, out var cell2)
-    .AddInput(2, out var cell3)
-    .AddFunction(inputs =>
-    {
-        var sum = inputs.Select(i => Convert.ToDouble(i)).Sum();
-        return sum;
-    }, out var result)
-    .Build();
+  var dagPipelineBuilder = DagPipelineBuilder.Create()
+      .AddInput<double>(6.2, out var cell1)
+      .AddInput<double>(4, out var cell2)
+      .AddInput<double>(2, out var cell3)
+      .AddFunction<double, double>(async inputs =>
+      {
+          var sum = inputs.Sum();
+          return await Task.FromResult(sum);
+      }, out var result, cell1, cell2, cell3);
 
-Console.WriteLine($"Created cell1: {cell1.Value}, cell2: {cell2.Value}, and cell3: {cell3.Value}");
-Console.WriteLine($"Sum of cells: {await DagPipelineBuilder.GetResult<double>(result)}");
-await DagPipelineBuilder.UpdateInput(cell2, 5);
-await DagPipelineBuilder.UpdateInput(cell3, 6);
-Console.WriteLine($"Updated Result: {await DagPipelineBuilder.GetResult<double>(result)}");
-</code></pre>
+  var dagEngine = dagPipelineBuilder.Build();
 
-## Example 4:
-Use of StreamResults() demonstrating real-time streaming of computed values while handling updates, cancellation, and graceful shutdown in an asynchronous workflow.
-<pre><code>
-var DagPipelineBuilder = DagPipelineBuilder.Create()
-                    .AddInput(1, out var inputCell)
-                    .AddFunction(inputs => (int)inputs[0] * 2, out var result)
-                    .Build();
-
-using var cts = new CancellationTokenSource();
-cts.CancelAfter(TimeSpan.FromSeconds(2));
-
-var resultStream = DagPipelineBuilder.StreamResults(result, cts.Token);
-
-var streamingTask = Task.Run(async () =>
-{
-   try
-   {
-       await foreach (var r in resultStream.WithCancellation(cts.Token))
-       {
-           Console.WriteLine($"Streamed Result: {r}");
-       }
-   }
-   catch (OperationCanceledException)
-   {
-       Console.WriteLine("Stream cancelled.");
-   }
-}, cts.Token);
-
-// Simulate some task that changes inputCell's value
-// The delay is added to see individual results
-for (int i = 0; i <= 100; i++)
-{
-   await DagPipelineBuilder.UpdateInput(inputCell, i);
-   await Task.Delay(5);
-}            
-await streamingTask;
+  Console.WriteLine($"Created cell1: {cell1.Value}, cell2: {cell2.Value}, and cell3: {cell3.Value}");
+  Console.WriteLine($"Sum of cells: {await dagEngine.GetResult<double>(result)}");
+  dagPipelineBuilder.UpdateInput(cell2, 5);
+  dagPipelineBuilder.UpdateInput(cell3, 6);
+  Console.WriteLine($"Updated Result: {await dagEngine.GetResult<double>(result)}");
 </code></pre>
 
 ## Example 4:
