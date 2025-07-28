@@ -23,38 +23,33 @@ class Program
                 .Select(j => Enumerable.Range(0, s.Length).Sum(i => s[i] * m[i, j]))
                 .ToArray();
 
-        // Helper to combine two cells into a tuple cell (explicit dependencies)
-        Cell<(T1, T2)> CombineCells<T1, T2>(Cell<T1> c1, Cell<T2> c2)
-        {
-            builder.AddFunction<(T1, T2)>(
-                new BaseCell[] { c1, c2 },
-                async inp => ((T1)inp[0], (T2)inp[1]),
-                out var tupleCell
-            );
-            return tupleCell;
-        }
-
         // Use explicit dependencies for all function nodes
-        var state0Tuple = CombineCells(state0, matrixCell);
+        var state0Tuple = builder.CombineCells(state0, matrixCell);
         Console.WriteLine("DAG after state0Tuple:");
         Console.WriteLine(builder.ToJson());
-        builder.AddFunction<(double[], double[,]), double[]>(new[] { state0Tuple }, async inp => Next(inp[0].Item1, inp[0].Item2), out var state1);
+        builder.AddFunction<object[], double[]>(new[] { state0Tuple }, async inp => {
+            var tuple = (object[])inp[0];
+            return Next((double[])tuple[0], (double[,])tuple[1]);
+        }, out var state1);
         Console.WriteLine("DAG after state1:");
         Console.WriteLine(builder.ToJson());
-        var state1Tuple = CombineCells(state1, matrixCell);
+        var state1Tuple = builder.CombineCells(state1, matrixCell);
         Console.WriteLine("DAG after state1Tuple:");
         Console.WriteLine(builder.ToJson());
-        builder.AddFunction<(double[], double[,]), double[]>(new[] { state1Tuple }, async inp => Next(inp[0].Item1, inp[0].Item2), out var state2);
+        builder.AddFunction<object[], double[]>(new[] { state1Tuple }, async inp => {
+            var tuple = (object[])inp[0];
+            return Next((double[])tuple[0], (double[,])tuple[1]);
+        }, out var state2);
         Console.WriteLine("DAG after state2:");
         Console.WriteLine(builder.ToJson());
 
         // Most likely weather for each day
-        builder.AddFunction<double[], string>(new[] { state1 }, async inp => weather[Array.IndexOf(inp[0], inp[0].Max())], out var day1Weather)
-               .AddFunction<double[], string>(new[] { state2 }, async inp => weather[Array.IndexOf(inp[0], inp[0].Max())], out var day2Weather);
+        builder.AddFunction<double[], string>(new[] { state1 as Cell<double[]> }, async inp => weather[Array.IndexOf(inp[0], inp[0].Max())], out var day1Weather)
+               .AddFunction<double[], string>(new[] { state2 as Cell<double[]> }, async inp => weather[Array.IndexOf(inp[0], inp[0].Max())], out var day2Weather);
 
         // Probability of rain for each day
-        builder.AddFunction<double[], double>(new[] { state1 }, async inp => inp[0][2], out var rain1)
-               .AddFunction<double[], double>(new[] { state2 }, async inp => inp[0][2], out var rain2)
+        builder.AddFunction<double[], double>(new[] { state1 as Cell<double[]> }, async inp => inp[0][2], out var rain1)
+               .AddFunction<double[], double>(new[] { state2 as Cell<double[]> }, async inp => inp[0][2], out var rain2)
         .Build();
 
         async Task Print()

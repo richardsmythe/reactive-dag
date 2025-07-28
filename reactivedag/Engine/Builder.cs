@@ -64,11 +64,18 @@ namespace ReactiveDAG.Core.Engine
         /// <returns>The current <see cref="Builder"/> instance for method chaining.</returns>
         public DagPipelineBuilder AddFunction<TInputs, TResult>(Func<TInputs[], Task<TResult>> function, out Cell<TResult> resultCell)
         {
-            var inputCells = _cells.Cast<Cell<TInputs>>().ToArray();
-            resultCell = _dagEngine.AddFunction<TInputs, TResult>(inputCells, function);
-            _cells.Clear();
-            _cells.Add(resultCell);
-            return this;
+            try
+            {
+                var inputCells = _cells.Cast<Cell<TInputs>>().ToArray();
+                resultCell = _dagEngine.AddFunction<TInputs, TResult>(inputCells, function);
+                _cells.Clear();
+                _cells.Add(resultCell);
+                return this;
+            }
+            catch (InvalidCastException ex)
+            {
+                throw new InvalidOperationException($"Type mismatch in AddFunction: expected Cell<{typeof(TInputs).Name}> but found a different type. Ensure AddInput and AddFunction use the same type.", ex);
+            }
         }
 
         /// <summary>
@@ -197,6 +204,19 @@ namespace ReactiveDAG.Core.Engine
             if (cell is Cell<T> typedCell)
                 return await _dagEngine.GetResult<T>(typedCell);
             throw new InvalidCastException($"Cell is not of type Cell<{typeof(T).Name}>");
+        }
+
+        /// <summary>
+        /// Combines any number of cells into a single function cell whose value is an object array containing the values of the input cells.
+        /// </summary>
+        /// <param name="cells">The cells to combine into a tuple cell.</param>
+        /// <returns>A function cell whose value is an object array of the input cell values.</returns>
+        public Cell<object[]> CombineCells(params BaseCell[] cells)
+        {
+            return _dagEngine.AddFunction(
+                cells,
+                async inputs => inputs
+            );
         }
     }
 }

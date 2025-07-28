@@ -563,5 +563,43 @@ namespace ReactiveDAG.tests
             var result = await builder.GetResult<string>(resultCell);
             Assert.Equal("42-3.14-hello", result);
         }
+
+        [Fact]
+        public async Task Test_CombineCells_Combines_10_Cells()
+        {
+            var builder = DagPipelineBuilder.Create();
+            var inputCells = new BaseCell[10];
+            for (int i = 0; i < 10; i++)
+            {
+                builder.AddInput(i, out Cell<int> cell);
+                inputCells[i] = cell;
+            }
+            var combinedCell = builder.CombineCells(inputCells);
+            builder.Build();
+            var result = await builder.GetResult<object[]>(combinedCell);
+            Assert.Equal(10, result.Length);
+            for (int i = 0; i < 10; i++)
+            {
+                Assert.Equal(i, (int)result[i]);
+            }
+        }
+
+        [Fact]
+        public async Task Test_CombineCells_Combines_Mixed_Types()
+        {
+            var builder = DagPipelineBuilder.Create();
+            builder.AddInput(42, out Cell<int> intCell);
+            builder.AddInput(3.14, out Cell<double> doubleCell);
+            builder.AddInput("hello", out Cell<string> stringCell);
+            builder.AddInput(true, out Cell<bool> boolCell);
+            var combinedCell = builder.CombineCells(intCell, doubleCell, stringCell, boolCell);
+            builder.Build();
+            var result = await builder.GetResult<object[]>(combinedCell);
+            Assert.Equal(4, result.Length);
+            Assert.Equal(42, (int)result[0]);
+            Assert.Equal(3.14, (double)result[1]);
+            Assert.Equal("hello", (string)result[2]);
+            Assert.Equal(true, (bool)result[3]);
+        }
     }
 }
