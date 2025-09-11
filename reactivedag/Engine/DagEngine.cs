@@ -12,7 +12,7 @@ namespace ReactiveDAG.Core.Engine
     /// </summary>
     public partial class DagEngine
     {
-        private readonly ConcurrentDictionary<int, object> _nodes = new ConcurrentDictionary<int, object>();
+        private readonly ConcurrentDictionary<int, IDagNodeOperations> _nodes = new ConcurrentDictionary<int, IDagNodeOperations>();
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
         private int _nextIndex = 0;
 
@@ -31,12 +31,14 @@ namespace ReactiveDAG.Core.Engine
         /// <summary>
         /// Gets the indices of nodes that depend on the specified node index.
         /// </summary>
-        private IEnumerable<int> GetDependentNodes(int index) => _nodes.Where(n => ((dynamic)n.Value).Dependencies.Contains(index)).Select(n => n.Key);
+        private IEnumerable<int> GetDependentNodes(int index) => 
+            _nodes.Where(n => n.Value.GetDependencies().Contains(index))
+                  .Select(n => n.Key);
 
         /// <summary>
         /// Returns all nodes in the DAG.
         /// </summary>
-        public IEnumerable<object> GetAllNodes() => _nodes.Values;
+        public IEnumerable<IDagNodeOperations> GetAllNodes() => _nodes.Values;
 
         /// <summary>
         /// Gets the total number of nodes in the DAG.
@@ -59,16 +61,17 @@ namespace ReactiveDAG.Core.Engine
         {
             if (!_nodes.TryGetValue(cell.Index, out var node)) throw new InvalidOperationException("Node not found.");
             var dagNode = (DagNode<T>)node;
-            // Check for reentrancy before accessing the lazy value
-            var isComputingField = typeof(DagNodeBase<T>).GetField("_isComputing", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            if (isComputingField != null && (bool)isComputingField.GetValue(dagNode))
+            
+            // Check for reentrancy
+            if (((DagNodeBase<T>)node).IsComputing())
             {
                 // Build dependency chain for debugging
                 string chain = BuildDependencyChain(cell.Index);
                 throw new InvalidOperationException($"Reentrancy detected: node {cell.Index} is currently being computed. Dependency chain: {chain}");
             }
+            
             var result = await dagNode.DeferredComputedNodeValue.Value;
-            return (T)result;
+            return result;
         }
 
         private string BuildDependencyChain(int startIndex)
@@ -76,17 +79,22 @@ namespace ReactiveDAG.Core.Engine
             var chain = new List<int> { startIndex };
             var current = startIndex;
             var visited = new HashSet<int> { startIndex };
+            
             while (true)
             {
-                var node = _nodes[current];
-                var deps = ((dynamic)node).Dependencies as HashSet<int>;
+                if (!_nodes.TryGetValue(current, out var node)) break;
+                
+                var deps = node.GetDependencies();
                 if (deps == null || deps.Count == 0) break;
+                
                 var next = deps.FirstOrDefault(d => !visited.Contains(d));
                 if (next == 0 || visited.Contains(next)) break;
+                
                 chain.Add(next);
                 visited.Add(next);
                 current = next;
             }
+            
             return string.Join(" -> ", chain);
         }
 
@@ -100,30 +108,40 @@ namespace ReactiveDAG.Core.Engine
         /// <returns>An asynchronous stream of results for the cell.</returns>
         public async IAsyncEnumerable<T> StreamResults<T>(Cell<T> cell, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            if (!_nodes.TryGetValue(cell.Index, out var node)) throw new InvalidOperationException("Node not found.");
+            if (!_nodes.TryGetValue(cell.Index, out var node)) 
+                throw new InvalidOperationException("Node not found.");
+            
             var dagNode = (DagNode<T>)node;
-            var channel = Channel.CreateUnbounded<T>();
+            var channel = Channel.CreateUnbounded<T>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+            
             async void Handler()
             {
                 try
                 {
                     if (cancellationToken.IsCancellationRequested) return;
+                    
                     var newValue = await GetResult(cell);
                     if (!channel.Writer.TryWrite(newValue) && !cancellationToken.IsCancellationRequested)
                     {
-                        Console.WriteLine($"Error writing: {newValue}");
+                        Console.WriteLine($"Error writing to channel: {newValue}");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error: {ex.Message}");
+                    Console.WriteLine($"Error in NodeUpdated handler: {ex.Message}");
                 }
             }
 
+            // Subscribe to the node's update event
             dagNode.NodeUpdated += Handler;
 
             try
             {
+                // Get initial value to start the stream
+                var initialValue = await GetResult(cell);
+                await channel.Writer.WriteAsync(initialValue, cancellationToken);
+                
+                // Read from the channel and yield results
                 await foreach (var value in channel.Reader.ReadAllAsync(cancellationToken))
                 {
                     yield return value;
@@ -131,7 +149,9 @@ namespace ReactiveDAG.Core.Engine
             }
             finally
             {
+                // Clean up event handler and channel
                 dagNode.NodeUpdated -= Handler;
+                
                 if (!cancellationToken.IsCancellationRequested)
                 {
                     channel.Writer.TryComplete();
@@ -148,14 +168,26 @@ namespace ReactiveDAG.Core.Engine
             if (_nodes.TryRemove(cell.Index, out var node))
             {
                 ((DagNode<T>)node).DisposeSubscriptions();
-                foreach (var dependentIndex in GetDependentNodes(cell.Index))
+                
+                // Store dependent nodes before removing the node
+                var dependentIndices = GetDependentNodes(cell.Index).ToList();
+                
+                // Remove dependency from all dependent nodes
+                foreach (var dependentIndex in dependentIndices)
                 {
-                    ((dynamic)_nodes[dependentIndex]).Dependencies.Remove(cell.Index);
+                    if (_nodes.TryGetValue(dependentIndex, out var dependentNode))
+                    {
+                        dependentNode.GetDependencies().Remove(cell.Index);
+                    }
                 }
-                foreach (var dependentIndex in GetDependentNodes(cell.Index))
+                
+                // Reset computation for all dependent nodes
+                foreach (var dependentIndex in dependentIndices)
                 {
-                    var dependentNode = _nodes[dependentIndex];
-                    ((dynamic)dependentNode).DeferredComputedNodeValue = new Lazy<Task<object>>(((dynamic)dependentNode).ComputeNodeValueAsync, LazyThreadSafetyMode.ExecutionAndPublication);
+                    if (_nodes.TryGetValue(dependentIndex, out var dependentNode))
+                    {
+                        dependentNode.ResetComputation();
+                    }
                 }
             }
         }
@@ -164,7 +196,7 @@ namespace ReactiveDAG.Core.Engine
         /// Adds a new input cell to the DAG.
         /// </summary>
         /// <typeparam name="T">The type of the value for the cell.</typeparam>
-        /// <param name="value">The value of the input cell.</param>
+        /// <param name="value">The value of the input cell.</typeparam>
         /// <returns>The created input cell.</returns>
         public Cell<T> AddInput<T>(T value)
         {
@@ -185,45 +217,47 @@ namespace ReactiveDAG.Core.Engine
         public Cell<TResult> AddFunction<TInputs, TResult>(Cell<TInputs>[] inputCells, Func<TInputs[], Task<TResult>> asyncFunction)
         {
             var cell = Cell<TResult>.CreateFunctionCell(_nextIndex++);
+            
             // Check for direct self-dependency and cycles before node creation
             foreach (var c in inputCells)
             {
                 if (c.Index == cell.Index)
                     throw new InvalidOperationException("A node cannot depend on itself (Lazy reentrancy protection).");
+                
                 // check for cycles from dependency to new node only if new node exists
                 if (_nodes.ContainsKey(cell.Index) && IsCyclic(c.Index, cell.Index))
                     throw new InvalidOperationException("Cyclic dependency detected.");
             }
+            
             var node = new DagNode<TResult>(cell, async () =>
             {
                 // Prevent recursive lazy evaluation by checking for reentrancy in dependencies
                 foreach (var dep in inputCells)
                 {
-                    var depNode = _nodes[dep.Index] as DagNodeBase<TInputs>;
-                    if (depNode != null)
+                    if (_nodes.TryGetValue(dep.Index, out var depNode) &&
+                        depNode is DagNodeBase<TInputs> typedNode && typedNode.IsComputing())
                     {
-                        var isComputingField = depNode.GetType().GetField("_isComputing", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        if (isComputingField != null && (bool)isComputingField.GetValue(depNode))
-                        {
-                            throw new InvalidOperationException($"Reentrancy detected in dependency node {dep.Index} while computing node {cell.Index}.");
-                        }
+                        throw new InvalidOperationException($"Reentrancy detected in dependency node {dep.Index} while computing node {cell.Index}.");
                     }
                 }
+                
                 var inputValues = await Task.WhenAll(inputCells.Select(c => GetResult(c)));
                 var result = await asyncFunction(inputValues);
                 return result;
             });
+            
             _nodes[cell.Index] = node;
 
             foreach (var c in inputCells)
             {
                 if (!_nodes.ContainsKey(c.Index))
                     throw new InvalidOperationException($"Dependency cell with index {c.Index} not found.");
-                ((DagNode<TResult>)node).Dependencies.Add(c.Index);
+                
+                node.Dependencies.Add(c.Index);
             }
 
             var dependencyCells = inputCells.OfType<BaseCell>();
-            ((DagNode<TResult>)node).ConnectDependencies(dependencyCells, ((DagNode<TResult>)node).ComputeNodeValueAsync);
+            node.ConnectDependencies(dependencyCells, node.ComputeNodeValueAsync);
 
             // ensure no cycles exist after dependencies are set
             foreach (var c in inputCells)
@@ -254,6 +288,7 @@ namespace ReactiveDAG.Core.Engine
                 }).ToArray();
                 return await function(inputValues);
             });
+            
             node.Dependencies = dependencies.Select(d => d.Index).ToHashSet();
             _nodes[cell.Index] = node;
             node.ConnectDependencies(dependencies, node.ComputeNodeValueAsync);
@@ -269,16 +304,23 @@ namespace ReactiveDAG.Core.Engine
         public bool IsCyclic(int startIndex, int targetIndex)
         {
             var visited = new HashSet<int>();
+            
             bool dfs(int current)
             {
                 if (current == targetIndex) return true;
                 if (!visited.Add(current)) return false;
-                foreach (var dependency in ((dynamic)_nodes[current]).Dependencies)
+                
+                if (_nodes.TryGetValue(current, out var node))
                 {
-                    if (dfs(dependency)) return true;
+                    foreach (var dependency in node.GetDependencies())
+                    {
+                        if (dfs(dependency)) return true;
+                    }
                 }
+                
                 return false;
             }
+            
             return dfs(startIndex);
         }
 
@@ -305,10 +347,18 @@ namespace ReactiveDAG.Core.Engine
             {
                 cell.PreviousValue = cell.Value;
                 cell.Value = value;
-                var node = (DagNode<T>)_nodes[cell.Index];
-                node.DeferredComputedNodeValue = new Lazy<Task<T>>(() => Task.FromResult(value), LazyThreadSafetyMode.ExecutionAndPublication);
-                node.NotifyUpdatedNode();
-                await UpdateAndRefresh(cell.Index);
+                
+                if (_nodes.TryGetValue(cell.Index, out var node) && node is DagNode<T> typedNode)
+                {
+                    // Update the node's lazy value with the new input value
+                    typedNode.DeferredComputedNodeValue = new Lazy<Task<T>>(() => Task.FromResult(value), LazyThreadSafetyMode.ExecutionAndPublication);
+                    
+                    // Notify that this node has updated
+                    typedNode.NotifyUpdatedNode();
+                    
+                    // Refresh all dependent nodes
+                    await UpdateAndRefresh(cell.Index);
+                }
             }
         }
 
@@ -316,12 +366,12 @@ namespace ReactiveDAG.Core.Engine
         /// Updates and refreshes the nodes based on the provided mode.
         /// </summary>
         /// <param name="startIndex">The starting node index for the update.</param>
-        /// <param name="mode">The update mode (update or refresh dependencies).</param>
         private async Task UpdateAndRefresh(int startIndex)
         {
             var visited = new HashSet<int>();
             var stack = new Stack<int>();
             stack.Push(startIndex);
+            
             await _lock.WaitAsync();
 
             try
@@ -330,41 +380,73 @@ namespace ReactiveDAG.Core.Engine
                 {
                     var index = stack.Pop();
                     if (!visited.Add(index)) continue;
-                    var node = _nodes[index];
-                    var dependentNodes = GetDependentNodes(index).ToList();
-                    await ((dynamic)node).DeferredComputedNodeValue.Value;
-                    foreach (var dependentNodeIndex in dependentNodes)
+                    
+                    if (!_nodes.TryGetValue(index, out var node)) continue;
+                    
+                    // Get dependent nodes before evaluating - they depend on the current state
+                    var dependentIndices = GetDependentNodes(index).ToList();
+
+                    await node.EvaluateAsync();
+                    
+                    foreach (var dependentIndex in dependentIndices)
                     {
-                        var dependentNode = _nodes[dependentNodeIndex];
-                        // Use correct type for Lazy<Task<T>> for function nodes
-                        var nodeType = dependentNode.GetType();
-                        var cellProp = nodeType.GetProperty("Cell");
-                        var cellObj = cellProp?.GetValue(dependentNode);
-                        var cellType = cellObj?.GetType();
-                        var valueType = cellType?.GenericTypeArguments.FirstOrDefault();
-                        if (valueType != null)
+                        if (_nodes.TryGetValue(dependentIndex, out var dependentNode))
                         {
-                            var computeMethod = nodeType.GetMethod("ComputeNodeValueAsync");
-                            var lazyType = typeof(Lazy<>).MakeGenericType(typeof(Task<>).MakeGenericType(valueType));
-                            var ctor = lazyType.GetConstructor(new[] { typeof(Func<>).MakeGenericType(typeof(Task<>).MakeGenericType(valueType)), typeof(LazyThreadSafetyMode) });
-                            var funcType = typeof(Func<>).MakeGenericType(typeof(Task<>).MakeGenericType(valueType));
-                            var func = Delegate.CreateDelegate(funcType, dependentNode, computeMethod);
-                            var newLazy = ctor.Invoke(new object[] { func, LazyThreadSafetyMode.ExecutionAndPublication });
-                            var lazyProp = nodeType.GetProperty("DeferredComputedNodeValue");
-                            lazyProp?.SetValue(dependentNode, newLazy);
+                            // Reset computation for this node to force reevaluation
+                            dependentNode.ResetComputation();
+                            
+                            // Evaluate the node to update its value
+                            await dependentNode.EvaluateAsync();
+                            
+                            // Trigger a notification for this node
+                            NotifyNodeUpdated(dependentNode);
+                            
+                            // Add this node to the stack to process its dependents
+                            stack.Push(dependentIndex);
                         }
-                        else
-                        {
-                            // fallback for if nodes are  non-generic 
-                            ((dynamic)dependentNode).DeferredComputedNodeValue = new Lazy<Task<object>>(((dynamic)dependentNode).ComputeNodeValueAsync, LazyThreadSafetyMode.ExecutionAndPublication);
-                        }
-                        stack.Push(dependentNodeIndex);
                     }
                 }
             }
             finally
             {
                 _lock.Release();
+            }
+        }
+        
+        /// <summary>
+        /// Helper method to notify that a node has been updated, using the appropriate method based on type
+        /// </summary>
+        private void NotifyNodeUpdated(IDagNodeOperations node)
+        {
+            // Use a type-specific approach based on the actual node type
+            if (node is DagNode<int> intNode)
+            {
+                intNode.NotifyUpdatedNode();
+            }
+            else if (node is DagNode<double> doubleNode)
+            {
+                doubleNode.NotifyUpdatedNode();
+            } 
+            else if (node is DagNode<string> stringNode)
+            {
+                stringNode.NotifyUpdatedNode();
+            }
+            else if (node is DagNode<bool> boolNode)
+            {
+                boolNode.NotifyUpdatedNode();
+            }
+            else if (node is DagNode<object> objNode)
+            {
+                objNode.NotifyUpdatedNode();
+            }
+            else
+            {
+                // If we can't determine the exact type, try using reflection as a fallback
+                var nodeType = node.GetType();
+                var notifyMethod = nodeType.GetMethod("NotifyUpdatedNode", 
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                
+                notifyMethod?.Invoke(node, null);
             }
         }
 
@@ -374,14 +456,26 @@ namespace ReactiveDAG.Core.Engine
         /// </summary>
         public string ToJson()
         {
-            var nodeDtos = _nodes.Values.Select(node => new
-            {
-                Index = ((dynamic)node).Cell.Index,
-                Type = ((dynamic)node).Cell.CellType.ToString(),
-                Value = ((dynamic)node).Cell.Value,
-                Dependencies = ((IEnumerable<int>)((dynamic)node).Dependencies).ToArray()
+            var nodeDtos = _nodes.Values.Select(node => {
+                var cell = node.GetCell();
+                return new
+                {
+                    Index = cell.Index,
+                    Type = cell.CellType.ToString(),
+                    Value = GetCellValue(cell),
+                    Dependencies = node.GetDependencies().ToArray()
+                };
             }).ToList();
+            
             return JsonConvert.SerializeObject(nodeDtos, Formatting.Indented);
-        }        
+        }
+        
+        private object GetCellValue(BaseCell cell)
+        {
+            // Use reflection to get the Value property from the cell
+            var type = cell.GetType();
+            var valueProp = type.GetProperty("Value");
+            return valueProp?.GetValue(cell);
+        }
     }
 }

@@ -1,13 +1,14 @@
 ﻿namespace ReactiveDAG.Core.Models
 {
-    public abstract class DagNodeBase<T>
+    public abstract class DagNodeBase<T> : IDagNodeOperations
     {
         public BaseCell Cell { get; set; }
         public HashSet<int> Dependencies { get; set; } = new();
         public Lazy<Task<T>> DeferredComputedNodeValue { get; set; }
         public List<IDisposable> Subscriptions { get; set; }
         public NodeStatus Status { get; protected set; } = NodeStatus.Idle;
-        private bool _isComputing = false;
+        protected bool _isComputing = false;
+        public event Action NodeUpdated;
 
         protected DagNodeBase(
             BaseCell cell,
@@ -35,6 +36,14 @@
         public abstract Task<T> ComputeNodeValueAsync();
 
         protected void UpdateStatus(NodeStatus newStatus) => Status = newStatus;
+
+        /// <summary>
+        /// Triggers the NodeUpdated event
+        /// </summary>
+        protected void OnNodeUpdated()
+        {
+            NodeUpdated?.Invoke();
+        }
 
         public void ConnectDependencies(IEnumerable<BaseCell> dependencyCells, Func<Task<T>> computeNodeValue)
         {
@@ -72,5 +81,20 @@
             }
             Subscriptions.Clear();
         }
+
+        // IDagNodeOperations implementation
+        public HashSet<int> GetDependencies() => Dependencies;
+
+        public BaseCell GetCell() => Cell;
+
+        public abstract void ResetComputation();
+
+        public virtual async Task<object> EvaluateAsync()
+        {
+            return await DeferredComputedNodeValue.Value;
+        }
+
+        // Helper methods
+        public bool IsComputing() => _isComputing;
     }
 }

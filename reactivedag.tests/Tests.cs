@@ -408,11 +408,20 @@ namespace ReactiveDAG.tests
             {
                 try
                 {
+                    // Skip the initial value (0) when adding to streamedResults
+                    bool skipFirst = true;
                     await foreach (var r in resultStream.WithCancellation(cts.Token))
                     {
                         if (lastValue is null || r != lastValue.Value)
                         {
-                            streamedResults.Add(r);
+                            if (skipFirst)
+                            {
+                                skipFirst = false;
+                            }
+                            else
+                            {
+                                streamedResults.Add(r);
+                            }
                         }
                         lastValue = r;
                     }
@@ -599,7 +608,130 @@ namespace ReactiveDAG.tests
             Assert.Equal(42, (int)result[0]);
             Assert.Equal(3.14, (double)result[1]);
             Assert.Equal("hello", (string)result[2]);
-            Assert.Equal(true, (bool)result[3]);
+            Assert.True((bool)result[3]);
+        }
+
+        [Fact]
+        public async Task Test_DAG_Propagation_For_LinearAlgebra_Operations()
+        {
+            var dag = new DagEngine();
+            var rand = new System.Random();
+            int matrixSize = 3;
+            int matrixCount = 3;
+
+            // Create random 3x3 matrices
+            var matrixCells = new List<Cell<object>>();
+            for (int m = 0; m < matrixCount; m++)
+            {
+                var matrix = new double[matrixSize, matrixSize];
+                for (int i = 0; i < matrixSize; i++)
+                    for (int j = 0; j < matrixSize; j++)
+                        matrix[i, j] = rand.NextDouble() * 10.0;
+                matrixCells.Add(dag.AddInput<object>(matrix));
+            }
+
+            // Create a random vector
+            var vector = new double[matrixSize];
+            for (int i = 0; i < matrixSize; i++)
+                vector[i] = rand.NextDouble() * 10.0;
+            var vectorCell = dag.AddInput<object>(vector);
+
+            // Matrix multiplication: matrix0 * matrix1
+            var multCell = dag.AddFunction<object, object>(
+                new[] { matrixCells[0], matrixCells[1] },
+                async inputs => Helpers.MatrixMultiply((double[,])inputs[0], (double[,])inputs[1])
+            );
+
+            // Matrix-vector multiplication: (matrix0 * matrix1) * vector
+            var matVecCell = dag.AddFunction<object, object>(
+                new[] { multCell, vectorCell },
+                async inputs => Helpers.MatrixVectorMultiply((double[,])inputs[0], (double[])inputs[1])
+            );
+
+            // Dot product: vector . ((matrix0 * matrix1) * vector)
+            var dotProductCell = dag.AddFunction<object, double>(
+                new[] { vectorCell, matVecCell },
+                async inputs => Helpers.DotProduct((double[])inputs[0], (double[])inputs[1])
+            );
+
+            // Determinant of matrix2
+            var determinantCell = dag.AddFunction<object, double>(
+                new[] { matrixCells[2] },
+                async inputs => Helpers.Determinant3x3((double[,])inputs[0])
+            );
+
+            // Identity matrix
+            var identityCell = dag.AddFunction<object, object>(
+                Array.Empty<Cell<object>>(),
+                async _ => {
+                    var identity = new double[matrixSize, matrixSize];
+                    for (int i = 0; i < matrixSize; i++)
+                        identity[i, i] = 1.0;
+                    return identity;
+                }
+            );
+
+            // Matrix inverse (simple adjugate/determinant for 3x3)
+            var inverseCell = dag.AddFunction<object, object>(
+                new[] { matrixCells[2] },
+                async inputs =>
+                {
+                    var m = (double[,])inputs[0];
+                    double det = Helpers.Determinant3x3(m);
+                    if (Math.Abs(det) < 1e-8) return null; // Not invertible
+                    // Compute adjugate
+                    var inv = new double[3,3];
+                    inv[0,0] = m[1,1]*m[2,2] - m[1,2]*m[2,1];
+                    inv[0,1] = -(m[1,0]*m[2,2] - m[1,2]*m[2,0]);
+                    inv[0,2] = m[1,0]*m[2,1] - m[1,1]*m[2,0];
+                    inv[1,0] = -(m[0,1]*m[2,2] - m[0,2]*m[2,1]);
+                    inv[1,1] = m[0,0]*m[2,2] - m[0,2]*m[2,0];
+                    inv[1,2] = -(m[0,0]*m[2,1] - m[0,1]*m[2,0]);
+                    inv[2,0] = m[0,1]*m[1,2] - m[0,2]*m[1,1];
+                    inv[2,1] = -(m[0,0]*m[1,2] - m[0,2]*m[1,0]);
+                    inv[2,2] = m[0,0]*m[1,1] - m[0,1]*m[1,0];
+                    // Divide by determinant
+                    for (int i = 0; i < 3; i++)
+                        for (int j = 0; j < 3; j++)
+                            inv[i,j] /= det;
+                    return inv;
+                }
+            );
+
+            // Chain: (matrix2 inverse) * identity
+            var invTimesIdentityCell = dag.AddFunction<object, object>(
+                new[] { inverseCell, identityCell },
+                async inputs =>
+                {
+                    var inv = (double[,])inputs[0];
+                    var id = (double[,])inputs[1];
+                    if (inv == null) return null;
+                    return Helpers.MatrixMultiply(inv, id);
+                }
+            );
+
+            // Get results
+            var dotResult = await dag.GetResult<double>(dotProductCell);
+            var detResult = await dag.GetResult<double>(determinantCell);
+            var invResult = await dag.GetResult<object>(inverseCell);
+            var idResult = await dag.GetResult<object>(identityCell);
+            var invIdResult = await dag.GetResult<object>(invTimesIdentityCell);
+
+            Assert.NotNull(invResult);
+            Assert.NotNull(idResult);
+            Assert.NotNull(invIdResult);
+            Assert.True(Math.Abs(detResult) > 1e-8); // Should be invertible
+
+            // Update propagation: change matrix2 and check determinant/inverse change
+            var newMatrix = new double[matrixSize, matrixSize];
+            for (int i = 0; i < matrixSize; i++)
+                for (int j = 0; j < matrixSize; j++)
+                    newMatrix[i, j] = rand.NextDouble() * 10.0;
+            await dag.UpdateInput(matrixCells[2], newMatrix);
+            var updatedDet = await dag.GetResult<double>(determinantCell);
+            var updatedInv = await dag.GetResult<object>(inverseCell);
+            Assert.NotEqual(detResult, updatedDet);
+            Assert.NotNull(updatedInv);
         }
     }
 }

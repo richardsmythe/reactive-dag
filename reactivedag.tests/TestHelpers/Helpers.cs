@@ -54,6 +54,7 @@ namespace ReactiveDAG.tests.TestHelpers
                 return new AdditionalData { Processed = true, PostCount = processedPosts.Count };
             });
         }
+        
         public static FinalResult AggregateResults(UserDetails userDetails, UserPosts userPosts, List<Post> processedPosts, AdditionalData additionalData)
         {
             return new FinalResult
@@ -62,6 +63,88 @@ namespace ReactiveDAG.tests.TestHelpers
                 PostCount = processedPosts.Count,
                 AdditionalDataProcessed = additionalData.Processed
             };
+        }
+        
+        public static double[,] MatrixMultiply(double[,] A, double[,] B)
+        {
+            int aRows = A.GetLength(0);
+            int aCols = A.GetLength(1);
+            int bRows = B.GetLength(0);
+            int bCols = B.GetLength(1);
+            
+            if (aCols != bRows)
+                throw new ArgumentException("Matrix dimensions do not match for multiplication");
+                
+            var result = new double[aRows, bCols];
+            
+            for (int i = 0; i < aRows; i++)
+            {
+                for (int j = 0; j < bCols; j++)
+                {
+                    result[i, j] = 0;
+                    for (int k = 0; k < aCols; k++)
+                    {
+                        result[i, j] += A[i, k] * B[k, j];
+                    }
+                }
+            }
+            
+            return result;
+        }
+
+        public static double[] MatrixVectorMultiply(double[,] A, double[] v)
+        {
+            int aRows = A.GetLength(0);
+            int aCols = A.GetLength(1);
+            
+            if (aCols != v.Length)
+                throw new ArgumentException("Matrix and vector dimensions do not match for multiplication");
+                
+            var result = new double[aRows];
+            
+            for (int i = 0; i < aRows; i++)
+            {
+                result[i] = 0;
+                for (int j = 0; j < aCols; j++)
+                {
+                    result[i] += A[i, j] * v[j];
+                }
+            }            
+            return result;
+        }
+        
+
+        public static double DotProduct(double[] a, double[] b)
+        {
+            if (a.Length != b.Length)
+                throw new ArgumentException("Vector dimensions do not match for dot product");
+                
+            double sum = 0;
+            for (int i = 0; i < a.Length; i++)
+            {
+                sum += a[i] * b[i];
+            }
+            
+            return sum;
+        }        
+     
+
+        public static double Determinant3x3(double[,] A)
+        {
+            if (A.GetLength(0) < 3 || A.GetLength(1) < 3)
+                throw new ArgumentException("Matrix must be at least 3x3");
+                
+            double a = A[0, 0];
+            double b = A[0, 1];
+            double c = A[0, 2];
+            double d = A[1, 0];
+            double e = A[1, 1];
+            double f = A[1, 2];
+            double g = A[2, 0];
+            double h = A[2, 1];
+            double i = A[2, 2];
+            
+            return a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
         }
     }
 }

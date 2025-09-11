@@ -7,7 +7,6 @@ public class DagNode<T> : DagNodeBase<T>
     private readonly Func<Task<T>> _computeNodeValue;
     private readonly SemaphoreSlim _computeLock = new SemaphoreSlim(1, 1);
     private T _lastComputedValueCache;
-    public event Action NodeUpdated;
 
     public DagNode(Cell<T> cell, Func<Task<T>> computeValue)
         : base(cell, computeValue)
@@ -26,7 +25,8 @@ public class DagNode<T> : DagNodeBase<T>
 
     public void NotifyUpdatedNode()
     {
-        NodeUpdated?.Invoke();
+
+        OnNodeUpdated();
     }
 
     public override async Task<T> ComputeNodeValueAsync()
@@ -63,5 +63,10 @@ public class DagNode<T> : DagNodeBase<T>
         {
             _computeLock.Release();
         }
+    }
+    
+    public override void ResetComputation()
+    {
+        DeferredComputedNodeValue = new Lazy<Task<T>>(_computeNodeValue, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 }
