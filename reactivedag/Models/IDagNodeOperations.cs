@@ -34,5 +34,25 @@ namespace ReactiveDAG.Core.Models
         /// Event that is triggered when the node's value is updated
         /// </summary>
         event Action NodeUpdated;
+
+        /// <summary>
+        /// Current status of the node computation
+        /// </summary>
+        NodeStatus Status { get; }
+
+        /// <summary>
+        /// Indicates if the node is currently computing
+        /// </summary>
+        bool IsComputing();
+
+        /// <summary>
+        /// Triggers the node updated notification in a non-generic way
+        /// </summary>
+        void NotifyUpdatedNode();
+
+        /// <summary>
+        /// Remove a specific dependency edge and dispose its subscription if present
+        /// </summary>
+        void RemoveDependency(int dependencyIndex);
     }
 }

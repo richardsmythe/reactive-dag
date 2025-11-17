@@ -533,23 +533,7 @@ namespace ReactiveDAG.tests
             {
                 Assert.Fail("Not all nodes have completed yet.");
             }
-        }
-
-        [Fact]
-        public void Test_DagEngine_ToJson_ExportsGraphStructure()
-        {
-            var dag = new DagEngine();
-            var a = dag.AddInput(1);
-            var b = dag.AddInput(2);
-            var sum = dag.AddFunction<int, int>(new[] { a, b }, async inputs => await Task.Run(() => (int)inputs[0] + (int)inputs[1]));
-            string json = dag.ToJson();
-            Assert.Contains("\"Index\":", json);
-            Assert.Contains("\"Type\":", json);
-            Assert.Contains("\"Dependencies\":", json);
-            Assert.Contains("\"Value\":", json);
-            Assert.Contains("1", json);
-            Assert.Contains("2", json);
-        }
+        }     
               
         [Fact]
         public async Task Test_AddFunction_With_Mixed_Cell_Types()

@@ -10,6 +10,9 @@
         protected bool _isComputing = false;
         public event Action NodeUpdated;
 
+        // Track per-dependency subscriptions for precise cleanup
+        private readonly Dictionary<int, IDisposable> _dependencySubscriptions = new();
+
         protected DagNodeBase(
             BaseCell cell,
             Func<Task<T>> computeNodeValue)
@@ -22,7 +25,7 @@
                 _isComputing = true;
                 try
                 {
-                    // Only call computeNodeValue, never access DeferredComputedNodeValue.Value here
+             
                     return await computeNodeValue();
                 }
                 finally
@@ -49,11 +52,20 @@
         {
             foreach (var dependency in dependencyCells)
             {
+                var index = dependency.Index;
+        
+                if (_dependencySubscriptions.TryGetValue(index, out var existing))
+                {
+                    existing.Dispose();
+                    _dependencySubscriptions.Remove(index);
+                }
+
                 var subscription = dependency.Subscribe(value =>
                 {
                     if (!_isComputing)
                         Task.Run(() => ComputeNodeValueAsync());
                 });
+                _dependencySubscriptions[index] = subscription;
                 Subscriptions.Add(subscription);
             }
             DeferredComputedNodeValue = new Lazy<Task<T>>(async () =>
@@ -63,7 +75,7 @@
                 _isComputing = true;
                 try
                 {
-                    // Only call computeNodeValue, never access DeferredComputedNodeValue.Value here
+            
                     return await computeNodeValue();
                 }
                 finally
@@ -80,9 +92,14 @@
                 subscription.Dispose();
             }
             Subscriptions.Clear();
+            foreach (var kvp in _dependencySubscriptions)
+            {
+                kvp.Value.Dispose();
+            }
+            _dependencySubscriptions.Clear();
         }
 
-        // IDagNodeOperations implementation
+
         public HashSet<int> GetDependencies() => Dependencies;
 
         public BaseCell GetCell() => Cell;
@@ -94,7 +111,20 @@
             return await DeferredComputedNodeValue.Value;
         }
 
-        // Helper methods
+
         public bool IsComputing() => _isComputing;
+
+        public void NotifyUpdatedNode() => OnNodeUpdated();
+
+        public void RemoveDependency(int dependencyIndex)
+        {
+            Dependencies.Remove(dependencyIndex);
+            if (_dependencySubscriptions.TryGetValue(dependencyIndex, out var sub))
+            {
+                sub.Dispose();
+                _dependencySubscriptions.Remove(dependencyIndex);
+                Subscriptions.Remove(sub);
+            }
+        }
     }
 }

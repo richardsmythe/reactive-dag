@@ -181,16 +181,7 @@ namespace ReactiveDAG.Core.Engine
         public DagEngine Build()
         {
             return _dagEngine;
-        }
-
-        /// <summary>
-        /// Converts the DAG to a JSON representation.
-        /// </summary>
-        /// <returns>A JSON string representing the DAG.</returns>
-        public string ToJson()
-        {
-            return _dagEngine.ToJson();
-        }
+        }      
 
         /// <summary>
         /// Gets the result for a specific cell asynchronously using the underlying DagEngine.
