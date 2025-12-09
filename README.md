@@ -1,3 +1,4 @@
+![NuGet Downloads](https://img.shields.io/nuget/dt/reactivedag)
 
 # Reactive Directed Acyclic Graph (ReactiveDAG) Project
 
