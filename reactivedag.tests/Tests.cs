@@ -1,6 +1,7 @@
 ﻿using ReactiveDAG.Core.Engine;
 using ReactiveDAG.Core.Models;
 using ReactiveDAG.tests.TestHelpers;
+using System.Collections.Concurrent;
 
 namespace ReactiveDAG.tests
 {
@@ -716,6 +717,93 @@ namespace ReactiveDAG.tests
             var updatedInv = await dag.GetResult<object>(inverseCell);
             Assert.NotEqual(detResult, updatedDet);
             Assert.NotNull(updatedInv);
+        }
+
+        [Fact]
+        public async Task Test_LinearAlgebra_Stress_Recompute_Counts()
+        {
+            //  builds a chain of 10 matrix multiplications, updates one early matrix,
+            //  and verifies that only the affected downstream product nodes recompute, demonstrating incremental propagation in the dag
+            var dag = new DagEngine();
+            int size = 50;
+            int numberOfMatrices = 10;
+            var rand = new System.Random(123);
+
+            var inputs = new List<Cell<object>>();
+            for (int k = 0; k < numberOfMatrices; k++)
+            {
+                var m = new double[size, size];
+                for (int i = 0; i < size; i++)
+                {
+                    for (int j = 0; j < size; j++)
+                    {
+                        m[i, j] = rand.NextDouble();
+                    }
+                }
+                inputs.Add(dag.AddInput<object>(m));
+            }
+
+            // Build product chain ((((M0*M1)*M2)*...*M9))
+            var productCells = new List<Cell<object>>();
+            Cell<object> current = dag.AddFunction<object, object>(
+                new[] { inputs[0], inputs[1] },
+                async arr => Helpers.MatrixMultiply((double[,])arr[0], (double[,])arr[1])
+            );
+            productCells.Add(current);
+            for (int i = 2; i < numberOfMatrices; i++)
+            {
+                current = dag.AddFunction<object, object>(
+                    new[] { current, inputs[i] },
+                    async arr => Helpers.MatrixMultiply((double[,])arr[0], (double[,])arr[1])
+                );
+                productCells.Add(current);
+            }
+
+            var initial = await dag.GetResult<object>(current);
+            Assert.NotNull(initial);
+            Assert.IsType<double[,]>(initial);
+            var initialMatrix = (double[,])initial;
+            Assert.Equal(size, initialMatrix.GetLength(0));
+            Assert.Equal(size, initialMatrix.GetLength(1));
+
+
+            var counts = new ConcurrentDictionary<int, int>();
+            foreach (var cell in productCells)
+            {
+                counts[cell.Index] = 0;
+                var node = dag.GetNode(cell);
+                node.NodeUpdated += () => counts.AddOrUpdate(cell.Index, 1, (_, v) => v + 1);
+            }
+
+     
+            int updatedIndex = 2;
+            var newM = new double[size, size];
+            for (int i = 0; i < size; i++)
+                for (int j = 0; j < size; j++)
+                    newM[i, j] = rand.NextDouble();
+            await dag.UpdateInput(inputs[updatedIndex], newM);
+
+            var updated = await dag.GetResult<object>(current);
+            Assert.NotNull(updated);
+
+
+            int expectedAffected = numberOfMatrices - updatedIndex;
+            int affected = 0;
+            for (int i = 0; i < productCells.Count; i++)
+            {
+                var cell = productCells[i];
+                counts.TryGetValue(cell.Index, out int c);
+                if (i < updatedIndex - 1)
+                {
+                    Assert.Equal(0, c);
+                }
+                else
+                {
+                    Assert.True(c >= 1, $"Product node at position {i} did not recompute");
+                    affected++;
+                }
+            }
+            Assert.Equal(expectedAffected, affected);
         }
     }
 }

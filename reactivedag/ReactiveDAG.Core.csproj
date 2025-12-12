@@ -1,16 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>Disable</Nullable>
   </PropertyGroup>
 	<PropertyGroup>
 		<PackageId>ReactiveDAG</PackageId>
-		<Version>1.0.8</Version>
+		<Version>1.0.9</Version>
 		<Authors>Richard Smythe</Authors>
-		<Description>A tool for managing dynamic computations in a directed acyclic graph, allowing automatic updates of node values based on input changes.</Description>
+		<Description>A light in-memory tool for managing dynamic computations in a directed acyclic graph, allowing automatic updates of node values based on input changes.</Description>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageProjectUrl>https://github.com/richardsmythe/ReactiveDAG</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/richardsmythe/ReactiveDAG</RepositoryUrl>
@@ -19,6 +19,9 @@
 		<TargetFramework>net8.0</TargetFramework>
 		<PackageTags>dag;directed acyclic graph; data structure; reactive; data flow; computation; graph; node; workflow</PackageTags>
 	</PropertyGroup>
+	<ItemGroup>
+	  <Compile Remove="Program.cs" />
+	</ItemGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="System.Reactive" Version="6.0.1" />

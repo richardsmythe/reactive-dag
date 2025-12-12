@@ -54,5 +54,10 @@ namespace ReactiveDAG.Core.Models
         /// Remove a specific dependency edge and dispose its subscription if present
         /// </summary>
         void RemoveDependency(int dependencyIndex);
+
+        /// <summary>
+        /// Releases any dependency subscriptions held by this node.
+        /// </summary>
+        void DisposeSubscriptions();
     }
 }
