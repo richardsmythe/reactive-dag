@@ -272,3 +272,22 @@ await PrintResults();
 
 ## Nuget
 ReactiveDag is available as a <a href="https://www.nuget.org/packages/ReactiveDAG">Nuget package.</a>
+
+## Roadmap
+
+**What's in place**
+- Fluent builder API
+- Async propagation with parallel dependency resolution
+- Change deduplication
+- Cycle detection with rollback
+- Streaming via `IAsyncEnumerable`
+- Thread safety (atomic indexing, per-node locks, propagation serialization)
+
+**Ideas / contributions welcome**
+- Error propagation to dependents (fault states)
+- Batch/transactional updates
+- Graph export (DOT/Mermaid)
+- Observability hooks
+- Benchmarks
+
+Open an issue if there's something specific you'd like to see.
