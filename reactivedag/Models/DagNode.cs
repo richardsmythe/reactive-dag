@@ -31,14 +31,16 @@ public class DagNode<T> : DagNodeBase<T>
 
     public override async Task<T> ComputeNodeValueAsync()
     {
+        bool valueChanged = false;
         await _computeLock.WaitAsync();
         try
         {
             UpdateStatus(NodeStatus.Processing);
             var newValue = await _computeNodeValue();
 
-            if (_lastComputedValueCache != null && _lastComputedValueCache.Equals(newValue))
+            if (EqualityComparer<T>.Default.Equals(_lastComputedValueCache, newValue))
             {
+                UpdateStatus(NodeStatus.Completed);
                 return _lastComputedValueCache;
             }
 
@@ -49,8 +51,7 @@ public class DagNode<T> : DagNodeBase<T>
                 reactiveCell.Value = newValue;
             }
 
-            _ = Task.Run(() => NotifyUpdatedNode());
-            
+            valueChanged = true;
             UpdateStatus(NodeStatus.Completed);
             return newValue;
         }
@@ -63,6 +64,9 @@ public class DagNode<T> : DagNodeBase<T>
         {
             _computeLock.Release();
         }
+
+        // Intentionally unreachable due to return/throw above — 
+        // notification is handled by the engine's UpdateAndRefresh flow
     }
     
     public override void ResetComputation()

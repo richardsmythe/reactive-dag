@@ -15,7 +15,7 @@ namespace ReactiveDAG.Core.Engine
     {
         private readonly ConcurrentDictionary<int, IDagNodeOperations> _nodes = new ConcurrentDictionary<int, IDagNodeOperations>();
         private readonly SemaphoreSlim _lock = new SemaphoreSlim(1, 1);
-        private int _nextIndex = 0;
+        private int _nextIndex = -1;
         private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, byte>> _dependentsMap = new();
         private bool _disposed;
 
@@ -247,7 +247,7 @@ namespace ReactiveDAG.Core.Engine
         public Cell<T> AddInput<T>(T value)
         {
             ThrowIfDisposed();
-            var cell = Cell<T>.CreateInputCell(_nextIndex++, value);
+            var cell = Cell<T>.CreateInputCell(Interlocked.Increment(ref _nextIndex), value);
             var node = new DagNode<T>(cell, () => Task.FromResult(value));
             _nodes[cell.Index] = node;
             return cell;
@@ -264,7 +264,7 @@ namespace ReactiveDAG.Core.Engine
         public Cell<TResult> AddFunction<TInputs, TResult>(Cell<TInputs>[] inputCells, Func<TInputs[], Task<TResult>> asyncFunction)
         {
             ThrowIfDisposed();
-            var cell = Cell<TResult>.CreateFunctionCell(_nextIndex++);
+            var cell = Cell<TResult>.CreateFunctionCell(Interlocked.Increment(ref _nextIndex));
 
 
             foreach (var c in inputCells)
@@ -289,26 +289,32 @@ namespace ReactiveDAG.Core.Engine
                 return result;
             });
 
-            _nodes[cell.Index] = node;
-
             foreach (var c in inputCells)
             {
                 if (!_nodes.ContainsKey(c.Index))
                     throw new InvalidOperationException($"Dependency cell with index {c.Index} not found.");
+            }
 
+            _nodes[cell.Index] = node;
+
+            foreach (var c in inputCells)
+            {
                 node.Dependencies.Add(c.Index);
                 AddDependentsMapEdge(c.Index, cell.Index);
             }
 
+            // Cycle detection, now that edges are in place, verify no cycle exists
+            if (HasCycleFrom(cell.Index))
+            {
+                // Roll back
+                foreach (var c in inputCells)
+                    RemoveDependentsMapEdge(c.Index, cell.Index);
+                _nodes.TryRemove(cell.Index, out _);
+                throw new InvalidOperationException($"Cycle detected: node {cell.Index} would create a circular dependency.");
+            }
+
             var dependencyCells = inputCells.Cast<BaseCell>();
             node.ConnectDependencies(dependencyCells, node.ComputeNodeValueAsync);
-
-            // ensure no cycles exist after dependencies are set
-            foreach (var c in inputCells)
-            {
-                if (IsCyclic(c.Index, cell.Index))
-                    throw new InvalidOperationException($"Cycle detected after node creation: {c.Index} -> {cell.Index}");
-            }
 
             return cell;
         }
@@ -323,7 +329,7 @@ namespace ReactiveDAG.Core.Engine
         public Cell<TResult> AddFunction<TResult>(BaseCell[] dependencies, Func<object[], Task<TResult>> function)
         {
             ThrowIfDisposed();
-            var cell = Cell<TResult>.CreateFunctionCell(_nextIndex++);
+            var cell = Cell<TResult>.CreateFunctionCell(Interlocked.Increment(ref _nextIndex));
             var node = new DagNode<TResult>(cell, async () =>
             {
                 var inputValues = dependencies.Select(dep =>
@@ -340,15 +346,43 @@ namespace ReactiveDAG.Core.Engine
             {
                 AddDependentsMapEdge(d.Index, cell.Index);
             }
+
+            if (HasCycleFrom(cell.Index))
+            {
+                foreach (var d in dependencies)
+                    RemoveDependentsMapEdge(d.Index, cell.Index);
+                _nodes.TryRemove(cell.Index, out _);
+                throw new InvalidOperationException($"Cycle detected: node {cell.Index} would create a circular dependency.");
+            }
+
             node.ConnectDependencies(dependencies, node.ComputeNodeValueAsync);
 
-
-            foreach (var d in dependencies)
-            {
-                if (IsCyclic(d.Index, cell.Index))
-                    throw new InvalidOperationException($"Cycle detected after node creation: {d.Index} -> {cell.Index}");
-            }
             return cell;
+        }
+
+        private bool HasCycleFrom(int nodeIndex)
+        {
+            var visited = new HashSet<int>();
+            var stack = new HashSet<int>();
+
+            bool Dfs(int current)
+            {
+                if (!visited.Add(current)) return stack.Contains(current);
+                stack.Add(current);
+
+                if (_nodes.TryGetValue(current, out var node))
+                {
+                    foreach (var dep in node.GetDependencies())
+                    {
+                        if (Dfs(dep)) return true;
+                    }
+                }
+
+                stack.Remove(current);
+                return false;
+            }
+
+            return Dfs(nodeIndex);
         }
 
         /// <summary>

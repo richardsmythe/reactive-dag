@@ -69,10 +69,11 @@ namespace ReactiveDAG.Core.Models
             foreach (var dependency in dependencyCells)
             {
                 var index = dependency.Index;
-        
+
                 if (_dependencySubscriptions.TryGetValue(index, out var existing))
                 {
                     existing.Dispose();
+                    Subscriptions.Remove(existing);
                     _dependencySubscriptions.Remove(index);
                 }
 
