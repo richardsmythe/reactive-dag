@@ -1,46 +1,130 @@
 ![NuGet Downloads](https://img.shields.io/nuget/dt/reactivedag)
 
-# Reactive Directed Acyclic Graph (ReactiveDAG) Project
+# ReactiveDAG
 
-## Overview
+A reactive DAG engine for .NET 8. You define inputs and computations, wire them together, and changes propagate through the graph automatically.
 
-The **ReactiveDAG** project provides a flexible and scalable framework for managing **reactive dependencies** using a **Directed Acyclic Graph (DAG)**. It allows developers to define a set of inputs and functions, track dependencies between them, and efficiently propagate changes throughout the system. It is ideal for local simulations, multi-step calculations where intermediate results are reused, build systems and task orchestration.
+Good for simulations, multi-step calculations where intermediate results get reused, build/task orchestration, or anywhere you'd reach for a spreadsheet-like dependency model.
 
-### Key Components
+## Architecture
 
-1. **DagEngine**:  
-   The core engine responsible for managing nodes, updating values, and propagating changes. It provides functionality for:
-   - Adding inputs and functions as nodes.
-   - Handling cyclic dependency detection.
-   - Propagating updates and refreshing dependencies.
-   - Ensuring thread-safety for concurrency control.
+There are two ways to use this:
 
-2. **DagPipelineBuilder**:  
-   This is a fluent API to simplify the creation of DAGs. It allows developers to easily create chained functions and inputs.
+**`DagPipelineBuilder`** — fluent API for building pipelines. You chain `.AddInput().AddFunction()` and it tracks the wiring for you. Best for straightforward linear/fan-in pipelines.
 
-3. **Cell<T>**:  
-   Represents a node in the DAG with reactive properties:
-   - **Input Cells**: Contain a value that can be updated dynamically.
-   - **Function Cells**: Compute their values based on input cell dependencies.
-   - Provides subscription support for value change notifications.
+**`DagEngine`** — the underlying engine. Use it directly when you need explicit dependency arrays, node removal, streaming, or want to inspect the graph at runtime.
 
-4. **DagNode**:  
-   Encapsulates the logic for individual nodes in the graph. Each node:
-   - Tracks its dependencies.
-   - Computes its value lazily or on demand.
-   - Reacts to changes in its inputs.
+Under the hood, **`Cell<T>`** holds a value and **`DagNode<T>`** wraps it with computation logic. When an input changes, the engine walks dependents and recomputes what's needed.
 
-## Potential use cases
+### Components
 
-- Manage complex backend tasks such as dynamic database connection pooling, orchestrating API requests, handling service dependencies, managing event-driven workflows, and enabling reactive monitoring and configuration updates in a modular and efficient way.
-- Manage complex workflows involving real-time data processing, decision-making, and task dependencies, such as for transaction handling, risk analysis, or dynamic calculations.
-- Small to medium local simulations.
+- **DagEngine** — manages nodes, propagates updates, detects cycles, handles concurrency
+- **DagPipelineBuilder** — fluent builder on top of `DagEngine`
+- **Cell\<T\>** — input cells hold values directly; function cells get their values from a compute function
+- **DagNode\<T\>** — wraps a cell, tracks dependencies, handles lazy/on-demand computation
 
-## How it Works:
-1. Define input cells to represent individual spreadsheet cells.
-2. Use function cells to define formulas that depend on input cells.
-3. Update the value of an input cell using `UpdateInput`.
-4. The system recalculates and propagates changes to all dependent cells efficiently.
+## API Reference
+
+### Creating Inputs
+
+```csharp
+// Via builder
+builder.AddInput(42, out Cell<int> cell);
+
+// Via engine directly
+Cell<int> cell = engine.AddInput(42);
+```
+
+### Adding Functions
+
+```csharp
+// All inputs share a type
+builder.AddFunction<int, int>(async inputs => inputs.Sum(), out var sum);
+
+// Mixed types — pass explicit BaseCell[] dependencies
+engine.AddFunction<string>(
+    new BaseCell[] { intCell, dateCell },
+    async inputs => $"{inputs[0]} on {inputs[1]}");
+
+// Explicit typed dependencies
+engine.AddFunction<int, int>(new[] { a, b }, async inputs => inputs[0] + inputs[1]);
+```
+
+### Updating Inputs
+
+```csharp
+await engine.UpdateInput(cell, newValue);
+```
+
+This triggers recomputation of everything downstream.
+
+### Getting Results
+
+```csharp
+var value = await engine.GetResult(cell);
+```
+
+### Streaming
+
+Subscribe to a cell's value over time:
+
+```csharp
+await foreach (var value in engine.StreamResults(cell, cancellationToken))
+{
+    Console.WriteLine(value);
+}
+```
+
+Yields the current value first, then emits whenever the cell recomputes.
+
+### Inspecting the Graph
+
+```csharp
+int count = engine.NodeCount;
+
+foreach (var node in engine.GetAllNodes())
+{
+    var cell = node.GetCell();
+    var deps = node.GetDependencies();
+    var value = await node.EvaluateAsync();
+}
+
+bool changed = engine.HasChanged(myCell);
+```
+
+### Removing Nodes
+
+```csharp
+engine.RemoveNode(cell);
+```
+
+### Combining Mixed-Type Cells
+
+```csharp
+Cell<object[]> combined = builder.CombineCells(intCell, stringCell, boolCell);
+```
+
+## Execution Model
+
+- All compute functions are async (`Func<T[], Task<TResult>>`).
+- `UpdateInput` walks dependents in topological order and recomputes them.
+- Multiple inputs to a function node resolve concurrently (`Task.WhenAll`).
+- If a node recomputes to the same value, propagation stops there (uses `EqualityComparer<T>.Default`).
+- `AddFunction` checks for cycles immediately and rolls back if one would form.
+- Thread-safe: atomic index generation, per-node compute locks, global semaphore for propagation.
+
+## Use Cases
+
+- Backend orchestration: API request pipelines, service dependencies, event-driven workflows
+- Financial calculations: risk analysis, transaction chains, dynamic pricing
+- Simulations with inputs that change over time
+
+## How it Works
+
+1. Create input cells with initial values.
+2. Add function cells that depend on those inputs (or on other function cells).
+3. Call `UpdateInput` when something changes.
+4. The engine recomputes everything downstream automatically.
 
 ## Example 1:
 An example of how to use the fluent api to build a simple DAG
