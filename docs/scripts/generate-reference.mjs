@@ -331,7 +331,7 @@ const intro = [
   "",
   ...pages.map(
     (page) =>
-      `- **${page.title}** — ${page.symbols.length} public declarations`,
+      `- [${page.title}](generated/${page.slug}) — ${page.symbols.length} public declarations`,
   ),
   "",
   "## Rebuild",
