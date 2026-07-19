@@ -1,0 +1,492 @@
+{
+  "schema": "reactivedag-sourcey-reference.v1",
+  "repository": "https://github.com/richardsmythe/reactive-dag",
+  "commit": "254db11b060f106bbd359c0f630770d3a792e474",
+  "generated_with": "sourcey@3.6.5",
+  "source_files": [
+    "reactivedag/Engine/Builder.cs",
+    "reactivedag/Engine/DagEngine.cs",
+    "reactivedag/Models/BaseCell.cs",
+    "reactivedag/Models/Cell.cs",
+    "reactivedag/Models/DagNode.cs",
+    "reactivedag/Models/DagNodeBase.cs",
+    "reactivedag/Models/DagNodeDto.cs",
+    "reactivedag/Models/IDagNodeOperations.cs",
+    "reactivedag/Models/NodeStatus.cs"
+  ],
+  "symbol_count": 75,
+  "pages": [
+    {
+      "slug": "dag-engine",
+      "title": "DagEngine",
+      "symbol_count": 15
+    },
+    {
+      "slug": "pipeline-builder",
+      "title": "DagPipelineBuilder",
+      "symbol_count": 15
+    },
+    {
+      "slug": "cells-and-nodes",
+      "title": "Cells and nodes",
+      "symbol_count": 38
+    },
+    {
+      "slug": "contracts-and-enums",
+      "title": "Contracts and enums",
+      "symbol_count": 7
+    }
+  ],
+  "symbols": [
+    {
+      "name": "DagPipelineBuilder",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 8,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L8"
+    },
+    {
+      "name": "DagPipelineBuilder.DagPipelineBuilder",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 16,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L16"
+    },
+    {
+      "name": "DagPipelineBuilder.Create",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 25,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L25"
+    },
+    {
+      "name": "DagPipelineBuilder.AddInput",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 37,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L37"
+    },
+    {
+      "name": "DagPipelineBuilder.AddInput",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 50,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L50"
+    },
+    {
+      "name": "DagPipelineBuilder.AddFunction",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 65,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L65"
+    },
+    {
+      "name": "DagPipelineBuilder.AddFunction",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 88,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L88"
+    },
+    {
+      "name": "DagPipelineBuilder.AddFunction",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 106,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L106"
+    },
+    {
+      "name": "DagPipelineBuilder.AddFunction",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 123,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L123"
+    },
+    {
+      "name": "DagPipelineBuilder.AddFunction",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 142,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L142"
+    },
+    {
+      "name": "DagPipelineBuilder.UpdateInput",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 157,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L157"
+    },
+    {
+      "name": "DagPipelineBuilder.RemoveNode",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 168,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L168"
+    },
+    {
+      "name": "DagPipelineBuilder.Build",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 181,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L181"
+    },
+    {
+      "name": "DagPipelineBuilder.GetResult",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 192,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L192"
+    },
+    {
+      "name": "DagPipelineBuilder.CombineCells",
+      "file": "reactivedag/Engine/Builder.cs",
+      "line": 205,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/Builder.cs#L205"
+    },
+    {
+      "name": "DagEngine",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 14,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L14"
+    },
+    {
+      "name": "DagEngine.GetNode",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 43,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L43"
+    },
+    {
+      "name": "DagEngine.GetAllNodes",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 68,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L68"
+    },
+    {
+      "name": "DagEngine.NodeCount",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 77,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L77"
+    },
+    {
+      "name": "DagEngine.ResultCallback",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 89,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L89"
+    },
+    {
+      "name": "DagEngine.GetResult",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 98,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L98"
+    },
+    {
+      "name": "DagEngine.StreamResults",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 152,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L152"
+    },
+    {
+      "name": "DagEngine.RemoveNode",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 205,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L205"
+    },
+    {
+      "name": "DagEngine.AddInput",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 247,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L247"
+    },
+    {
+      "name": "DagEngine.AddFunction",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 264,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L264"
+    },
+    {
+      "name": "DagEngine.AddFunction",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 329,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L329"
+    },
+    {
+      "name": "DagEngine.IsCyclic",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 394,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L394"
+    },
+    {
+      "name": "DagEngine.HasChanged",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 422,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L422"
+    },
+    {
+      "name": "DagEngine.UpdateInput",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 434,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L434"
+    },
+    {
+      "name": "DagEngine.Dispose",
+      "file": "reactivedag/Engine/DagEngine.cs",
+      "line": 520,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Engine/DagEngine.cs#L520"
+    },
+    {
+      "name": "BaseCell",
+      "file": "reactivedag/Models/BaseCell.cs",
+      "line": 3,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/BaseCell.cs#L3"
+    },
+    {
+      "name": "BaseCell.Index",
+      "file": "reactivedag/Models/BaseCell.cs",
+      "line": 6,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/BaseCell.cs#L6"
+    },
+    {
+      "name": "BaseCell.CellType",
+      "file": "reactivedag/Models/BaseCell.cs",
+      "line": 7,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/BaseCell.cs#L7"
+    },
+    {
+      "name": "BaseCell.Subscribe",
+      "file": "reactivedag/Models/BaseCell.cs",
+      "line": 9,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/BaseCell.cs#L9"
+    },
+    {
+      "name": "BaseCell.Subscribe",
+      "file": "reactivedag/Models/BaseCell.cs",
+      "line": 11,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/BaseCell.cs#L11"
+    },
+    {
+      "name": "Cell",
+      "file": "reactivedag/Models/Cell.cs",
+      "line": 7,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/Cell.cs#L7"
+    },
+    {
+      "name": "Cell.Value",
+      "file": "reactivedag/Models/Cell.cs",
+      "line": 10,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/Cell.cs#L10"
+    },
+    {
+      "name": "Cell.PreviousValue",
+      "file": "reactivedag/Models/Cell.cs",
+      "line": 23,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/Cell.cs#L23"
+    },
+    {
+      "name": "Cell.OnValueChanged",
+      "file": "reactivedag/Models/Cell.cs",
+      "line": 24,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/Cell.cs#L24"
+    },
+    {
+      "name": "Cell.Cell",
+      "file": "reactivedag/Models/Cell.cs",
+      "line": 26,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/Cell.cs#L26"
+    },
+    {
+      "name": "Cell.CreateInputCell",
+      "file": "reactivedag/Models/Cell.cs",
+      "line": 34,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/Cell.cs#L34"
+    },
+    {
+      "name": "Cell.CreateFunctionCell",
+      "file": "reactivedag/Models/Cell.cs",
+      "line": 35,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/Cell.cs#L35"
+    },
+    {
+      "name": "Cell.Subscribe",
+      "file": "reactivedag/Models/Cell.cs",
+      "line": 37,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/Cell.cs#L37"
+    },
+    {
+      "name": "Cell.Subscribe",
+      "file": "reactivedag/Models/Cell.cs",
+      "line": 43,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/Cell.cs#L43"
+    },
+    {
+      "name": "CellType",
+      "file": "reactivedag/Models/Cell.cs",
+      "line": 68,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/Cell.cs#L68"
+    },
+    {
+      "name": "DagNode",
+      "file": "reactivedag/Models/DagNode.cs",
+      "line": 5,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNode.cs#L5"
+    },
+    {
+      "name": "DagNode.DagNode",
+      "file": "reactivedag/Models/DagNode.cs",
+      "line": 11,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNode.cs#L11"
+    },
+    {
+      "name": "DagNode.GetCellValue",
+      "file": "reactivedag/Models/DagNode.cs",
+      "line": 17,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNode.cs#L17"
+    },
+    {
+      "name": "DagNode.NotifyUpdatedNode",
+      "file": "reactivedag/Models/DagNode.cs",
+      "line": 26,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNode.cs#L26"
+    },
+    {
+      "name": "DagNode.ComputeNodeValueAsync",
+      "file": "reactivedag/Models/DagNode.cs",
+      "line": 32,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNode.cs#L32"
+    },
+    {
+      "name": "DagNode.ResetComputation",
+      "file": "reactivedag/Models/DagNode.cs",
+      "line": 72,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNode.cs#L72"
+    },
+    {
+      "name": "DagNodeBase",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 8,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L8"
+    },
+    {
+      "name": "DagNodeBase.Cell",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 10,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L10"
+    },
+    {
+      "name": "DagNodeBase.Dependencies",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 11,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L11"
+    },
+    {
+      "name": "DagNodeBase.DeferredComputedNodeValue",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 12,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L12"
+    },
+    {
+      "name": "DagNodeBase.Subscriptions",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 13,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L13"
+    },
+    {
+      "name": "DagNodeBase.Status",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 14,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L14"
+    },
+    {
+      "name": "DagNodeBase.NodeUpdated",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 18,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L18"
+    },
+    {
+      "name": "DagNodeBase.ComputeNodeValueAsync",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 49,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L49"
+    },
+    {
+      "name": "DagNodeBase.ConnectDependencies",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 67,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L67"
+    },
+    {
+      "name": "DagNodeBase.DisposeSubscriptions",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 135,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L135"
+    },
+    {
+      "name": "DagNodeBase.GetDependencies",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 153,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L153"
+    },
+    {
+      "name": "DagNodeBase.GetCell",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 158,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L158"
+    },
+    {
+      "name": "DagNodeBase.ResetComputation",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 163,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L163"
+    },
+    {
+      "name": "DagNodeBase.EvaluateAsync",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 168,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L168"
+    },
+    {
+      "name": "DagNodeBase.IsComputing",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 177,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L177"
+    },
+    {
+      "name": "DagNodeBase.NotifyUpdatedNode",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 182,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L182"
+    },
+    {
+      "name": "DagNodeBase.RemoveDependency",
+      "file": "reactivedag/Models/DagNodeBase.cs",
+      "line": 187,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeBase.cs#L187"
+    },
+    {
+      "name": "DagNodeDto",
+      "file": "reactivedag/Models/DagNodeDto.cs",
+      "line": 3,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeDto.cs#L3"
+    },
+    {
+      "name": "DagNodeDto.Index",
+      "file": "reactivedag/Models/DagNodeDto.cs",
+      "line": 5,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeDto.cs#L5"
+    },
+    {
+      "name": "DagNodeDto.Type",
+      "file": "reactivedag/Models/DagNodeDto.cs",
+      "line": 6,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeDto.cs#L6"
+    },
+    {
+      "name": "DagNodeDto.Value",
+      "file": "reactivedag/Models/DagNodeDto.cs",
+      "line": 7,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeDto.cs#L7"
+    },
+    {
+      "name": "DagNodeDto.Dependencies",
+      "file": "reactivedag/Models/DagNodeDto.cs",
+      "line": 8,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/DagNodeDto.cs#L8"
+    },
+    {
+      "name": "IDagNodeOperations",
+      "file": "reactivedag/Models/IDagNodeOperations.cs",
+      "line": 11,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/IDagNodeOperations.cs#L11"
+    },
+    {
+      "name": "NodeStatus",
+      "file": "reactivedag/Models/NodeStatus.cs",
+      "line": 3,
+      "source_url": "https://github.com/richardsmythe/reactive-dag/blob/254db11b060f106bbd359c0f630770d3a792e474/reactivedag/Models/NodeStatus.cs#L3"
+    }
+  ]
+}

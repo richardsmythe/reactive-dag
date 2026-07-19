@@ -1,0 +1,12 @@
+{
+  "name": "reactivedag-sourcey-docs",
+  "private": true,
+  "scripts": {
+    "generate": "node scripts/generate-reference.mjs",
+    "build": "npm run generate && sourcey build --output dist",
+    "verify": "node scripts/verify-site.mjs"
+  },
+  "devDependencies": {
+    "sourcey": "3.6.5"
+  }
+}
