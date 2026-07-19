@@ -331,7 +331,7 @@ const intro = [
   "",
   ...pages.map(
     (page) =>
-      `- [${page.title}](/reactive-dag/generated/${page.slug}.html) — ${page.symbols.length} public declarations`,
+      `- [${page.title}](https://richardsmythe.github.io/reactive-dag/generated/${page.slug}.html) — ${page.symbols.length} public declarations`,
   ),
   "",
   "## Rebuild",
