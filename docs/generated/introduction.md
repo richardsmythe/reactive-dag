@@ -16,10 +16,10 @@ This reference complements the hand-written architecture and examples in the pro
 
 ## Reference sections
 
-- [DagEngine](./dag-engine.md) — 15 public declarations
-- [DagPipelineBuilder](./pipeline-builder.md) — 15 public declarations
-- [Cells and nodes](./cells-and-nodes.md) — 38 public declarations
-- [Contracts and enums](./contracts-and-enums.md) — 7 public declarations
+- [DagEngine](/reactive-dag/generated/dag-engine.html) — 15 public declarations
+- [DagPipelineBuilder](/reactive-dag/generated/pipeline-builder.html) — 15 public declarations
+- [Cells and nodes](/reactive-dag/generated/cells-and-nodes.html) — 38 public declarations
+- [Contracts and enums](/reactive-dag/generated/contracts-and-enums.html) — 7 public declarations
 
 ## Rebuild
 
