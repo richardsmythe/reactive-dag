@@ -25,6 +25,9 @@ Under the hood, **`Cell<T>`** holds a value and **`DagNode<T>`** wraps it with c
 
 ## API Reference
 
+For the complete searchable reference, see the
+[ReactiveDAG API documentation](https://richardsmythe.github.io/reactive-dag/).
+
 ### Creating Inputs
 
 ```csharp
