@@ -29,3 +29,7 @@ snapshot.
 Pull requests that affect the C# API or docs run the build and verification.
 After a matching change reaches `master`, the `Sourcey API docs` workflow
 publishes the verified site to the repository's GitHub Pages environment.
+
+The repository owner must enable Pages with **GitHub Actions** as the source once
+under **Settings → Pages**. This keeps the workflow on the default GitHub token
+instead of requiring a separate administration-scoped token.
